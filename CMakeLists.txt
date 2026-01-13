@@ -28,7 +28,7 @@ set(PICO_PLATFORM rp2350-arm-s)
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
-set(FREERTOS_KERNEL_PATH ${CMAKE_CURRENT_LIST_DIR}/FreeRTOS-Kernel)
+set(FREERTOS_KERNEL_PATH ${CMAKE_CURRENT_LIST_DIR}/FreeRTOS)
 include(FreeRTOS_Kernel_import.cmake)
 
 project(BasicRTOS C CXX ASM)
@@ -51,6 +51,7 @@ pico_enable_stdio_usb(BasicRTOS 1)
 target_link_libraries(BasicRTOS PRIVATE
         pico_multicore
         pico_stdlib
+        pico_cyw43_arch_none
         FreeRTOS-Kernel
         FreeRTOS-Kernel-Heap4)
 
@@ -61,9 +62,6 @@ target_include_directories(BasicRTOS PRIVATE
 )
 
 # Add any user requested libraries
-target_link_libraries(BasicRTOS 
-        pico_cyw43_arch_none
-        )
 
 pico_add_extra_outputs(BasicRTOS)
 
