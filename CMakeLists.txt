@@ -9,20 +9,21 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Initialise pico_sdk from installed location
 # (note this can come from environment, CMake cache etc)
 
-# == DO NOT EDIT THE FOLLOWING LINES for the Raspberry Pi Pico VS Code Extension to work ==
+# == DO NOT EDIT THE FOLLOWING LINES for
+# the Raspberry Pi Pico VS Code Extension to work ==
 if(WIN32)
-    set(USERHOME $ENV{USERPROFILE})
+  set(USERHOME $ENV{USERPROFILE})
 else()
-    set(USERHOME $ENV{HOME})
+  set(USERHOME $ENV{HOME})
 endif()
 set(sdkVersion 2.2.0)
 set(toolchainVersion 14_2_Rel1)
 set(picotoolVersion 2.2.0-a4)
 set(picoVscode ${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
-if (EXISTS ${picoVscode})
-    include(${picoVscode})
+if(EXISTS ${picoVscode})
+  include(${picoVscode})
 endif()
-# ====================================================================================
+# ==============================================================================
 set(PICO_BOARD pico2_w CACHE STRING "Board type")
 set(PICO_PLATFORM rp2350-arm-s)
 
@@ -38,7 +39,11 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(BasicRTOS BasicRTOS.c )
+add_executable(BasicRTOS
+      BasicRTOS.c
+      src/network.c
+      lcd.c)
+
 
 pico_set_program_name(BasicRTOS "BasicRTOS")
 pico_set_program_version(BasicRTOS "0.1")
@@ -51,7 +56,12 @@ pico_enable_stdio_usb(BasicRTOS 1)
 target_link_libraries(BasicRTOS PRIVATE
         pico_multicore
         pico_stdlib
-        pico_cyw43_arch_none
+        hardware_i2c
+        pico_flash
+        pico_cyw43_arch_lwip_sys_freertos
+        pico_lwip_http
+        pico_lwip_mdns
+        pico_httpd_content
         FreeRTOS-Kernel
         FreeRTOS-Kernel-Heap4)
 
@@ -64,4 +74,10 @@ target_include_directories(BasicRTOS PRIVATE
 # Add any user requested libraries
 
 pico_add_extra_outputs(BasicRTOS)
+
+pico_add_library(pico_httpd_content NOFLAG)
+pico_set_lwip_httpd_content(pico_httpd_content INTERFACE
+      ${CMAKE_CURRENT_LIST_DIR}/html/welcome.html
+      ${CMAKE_CURRENT_LIST_DIR}/html/404.html
+      )
 
