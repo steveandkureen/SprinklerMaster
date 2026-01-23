@@ -1,12 +1,16 @@
-#include "FreeRTOS.h"
-#include "task.h"
 #include "network.h"
+#include "FreeRTOS.h"
 #include "config.h"
 #include "lcd.h"
+#include "lwip/apps/httpd.h"
+#include "lwip/ip4_addr.h"
 #include "pico/cyw43_arch.h"
 #include "pico/flash.h"
 #include "pico/types.h"
+#include "task.h"
 #include "wifi_credentials.h"
+#include <lwip/def.h>
+#include <stdbool.h>
 #include <stdio.h>
 
 bool init_wifi(void *pvParameters) {
@@ -62,4 +66,51 @@ bool init_wifi(void *pvParameters) {
   return true;
 }
 
-bool run_server(void *pvParameters) { return true; }
+static const char *cgi_handler_default(int index, int numParams, char *params[],
+                                       char *value[]) {
+
+  return "/welcome.html";
+}
+
+static tCGI cgi_handlers[] = {{"/", cgi_handler_default},
+                              {"/index.html", cgi_handler_default}};
+
+// SSI tags
+static const char *ssi_tags[] = {"IP_ADDRESS"};
+
+// SSI handler
+static u16_t ssi_handler(int index, char *insert, int insertlen) {
+  size_t printed = 0;
+
+  switch (index) {
+    case 0: // IP_ADDRESS
+      {
+        if (netif_default != NULL) {
+          const char *ip_str = ip4addr_ntoa(netif_ip4_addr(netif_default));
+          printed = snprintf(insert, insertlen, "%s", ip_str);
+        } else {
+          printed = snprintf(insert, insertlen, "No IP");
+        }
+      }
+      break;
+    default:
+      printed = 0;
+      break;
+  }
+
+  return (u16_t)printed;
+}
+
+bool run_server(void *pvParameters) {
+  cyw43_arch_lwip_begin();
+  httpd_init();
+  http_set_cgi_handlers(cgi_handlers, LWIP_ARRAYSIZE(cgi_handlers));
+  http_set_ssi_handler(ssi_handler, ssi_tags, LWIP_ARRAYSIZE(ssi_tags));
+  cyw43_arch_lwip_end();
+
+  while (true) {
+    vTaskDelay(pdMS_TO_TICKS(1000));
+  }
+
+  return true;
+}

@@ -37,6 +37,13 @@ project(BasicRTOS C CXX ASM)
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
+# Create httpd content library first
+pico_add_library(pico_httpd_content NOFLAG)
+pico_set_lwip_httpd_content(pico_httpd_content INTERFACE
+      ${CMAKE_CURRENT_LIST_DIR}/content/welcome.html
+      ${CMAKE_CURRENT_LIST_DIR}/content/404.html
+      )
+
 # Add executable. Default name is the project name, version 0.1
 
 add_executable(BasicRTOS
@@ -74,10 +81,4 @@ target_include_directories(BasicRTOS PRIVATE
 # Add any user requested libraries
 
 pico_add_extra_outputs(BasicRTOS)
-
-pico_add_library(pico_httpd_content NOFLAG)
-pico_set_lwip_httpd_content(pico_httpd_content INTERFACE
-      ${CMAKE_CURRENT_LIST_DIR}/html/welcome.html
-      ${CMAKE_CURRENT_LIST_DIR}/html/404.html
-      )
 
