@@ -40,7 +40,8 @@ pico_sdk_init()
 # Create httpd content library first
 pico_add_library(pico_httpd_content NOFLAG)
 pico_set_lwip_httpd_content(pico_httpd_content INTERFACE
-      ${CMAKE_CURRENT_LIST_DIR}/content/welcome.html
+      ${CMAKE_CURRENT_LIST_DIR}/content/welcome.shtml
+      ${CMAKE_CURRENT_LIST_DIR}/content/dashboard.html
       ${CMAKE_CURRENT_LIST_DIR}/content/404.html
       )
 

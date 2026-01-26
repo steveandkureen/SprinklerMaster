@@ -13,6 +13,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+char *ip4_addr = NULL;
+
 bool init_wifi(void *pvParameters) {
   // Now continue with the actual application
   char ip_str[16];
@@ -55,13 +57,12 @@ bool init_wifi(void *pvParameters) {
     printf("Connected.\n");
     vTaskDelay(pdMS_TO_TICKS(1000));
     // Read the ip address in a human readable way
-    char *ip_address =
-        ip4addr_ntoa(netif_default ? &netif_default->ip_addr : NULL);
-    printf("IP address %s\n", ip_address);
+    ip4_addr = ip4addr_ntoa(netif_default ? &netif_default->ip_addr : NULL);
+    printf("IP address %s\n", ip4_addr);
 
     // Display IP address on LCD
-    snprintf(ip_str, sizeof(ip_str), "%s", ip_address);
-    lcd_set_text(1, 0, ip_address);
+    snprintf(ip_str, sizeof(ip_str), "%s", ip4_addr);
+    lcd_set_text(1, 0, ip4_addr);
   }
   return true;
 }
@@ -69,35 +70,33 @@ bool init_wifi(void *pvParameters) {
 static const char *cgi_handler_default(int index, int numParams, char *params[],
                                        char *value[]) {
 
-  return "/welcome.html";
+  printf("cgi called\n");
+  return "/welcome.shtml";
 }
 
 static tCGI cgi_handlers[] = {{"/", cgi_handler_default},
                               {"/index.html", cgi_handler_default}};
 
 // SSI tags
-static const char *ssi_tags[] = {"IP_ADDRESS"};
+static const char *ssi_tags[] = {"ip4_addr"};
 
 // SSI handler
 static u16_t ssi_handler(int index, char *insert, int insertlen) {
   size_t printed = 0;
 
+  printf("SSI called\n");
   switch (index) {
-    case 0: // IP_ADDRESS
-      {
-        if (netif_default != NULL) {
-          const char *ip_str = ip4addr_ntoa(netif_ip4_addr(netif_default));
-          printed = snprintf(insert, insertlen, "%s", ip_str);
-        } else {
-          printed = snprintf(insert, insertlen, "No IP");
-        }
-      }
-      break;
-    default:
-      printed = 0;
-      break;
+  case 0: // ip4_addr
+  {
+    printf("IP replace address %s\n", ip4_addr);
+    printed = snprintf(insert, insertlen, "%s", ip4_addr);
+  } break;
+  default:
+    printed = 0;
+    break;
   }
 
+  printf("IP replace address2  %s\n", ip4_addr);
   return (u16_t)printed;
 }
 
