@@ -101,6 +101,7 @@
 
 #define LWIP_HTTPD_CGI 1
 #define LWIP_HTTPD_SSI 1
+#define LWIP_HTTPD_SSI_INCLUDE_TAG 0
 #define LWIP_HTTPD_SSI_EXTENSIONS ".shtml", ".shtm", ".ssi", ".xml", ".json", ".html"
 #define HTTPD_FSDATA_FILE "pico_fsdata.inc"
 

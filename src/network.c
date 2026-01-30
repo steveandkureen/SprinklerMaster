@@ -1,11 +1,13 @@
 #include "network.h"
 #include "FreeRTOS.h"
 #include "config.h"
+#include "dht22.h"
 #include "lcd.h"
 #include "lwip/apps/httpd.h"
 #include "lwip/ip4_addr.h"
 #include "pico/cyw43_arch.h"
 #include "pico/flash.h"
+#include "pico/time.h"
 #include "pico/types.h"
 #include "task.h"
 #include "wifi_credentials.h"
@@ -74,29 +76,52 @@ static const char *cgi_handler_default(int index, int numParams, char *params[],
   return "/welcome.shtml";
 }
 
-static tCGI cgi_handlers[] = {{"/", cgi_handler_default},
-                              {"/index.html", cgi_handler_default}};
+static const char *cgi_handler_sensors(int index, int numParams, char *params[],
+                                       char *value[]) {
+  printf("sensors API called\n");
+  return "/api/sensors.json";
+}
 
-// SSI tags
-static const char *ssi_tags[] = {"ip4_addr"};
+static tCGI cgi_handlers[] = {{"/", cgi_handler_default},
+                              {"/index.html", cgi_handler_default},
+                              {"/api/sensors", cgi_handler_sensors}};
+
+// SSI tags - indices: 0=ip4_addr, 1=temp, 2=hum, 3=upd
+static const char *ssi_tags[] = {"ip4_addr", "temp", "hum", "upd"};
 
 // SSI handler
 static u16_t ssi_handler(int index, char *insert, int insertlen) {
   size_t printed = 0;
 
-  printf("SSI called\n");
   switch (index) {
   case 0: // ip4_addr
-  {
-    printf("IP replace address %s\n", ip4_addr);
     printed = snprintf(insert, insertlen, "%s", ip4_addr);
+    break;
+  case 1: // temp - temperature in Fahrenheit
+    printed = snprintf(insert, insertlen, "%d", g_sensor_data.temperature_f);
+    break;
+  case 2: // hum - humidity percentage
+    printed = snprintf(insert, insertlen, "%d", g_sensor_data.humidity);
+    break;
+  case 3: // upd - time since last update
+  {
+    if (!g_sensor_data.valid) {
+      printed = snprintf(insert, insertlen, "No data");
+    } else {
+      uint32_t now_ms = to_ms_since_boot(get_absolute_time());
+      uint32_t elapsed_s = (now_ms - g_sensor_data.last_read_ms) / 1000;
+      if (elapsed_s < 60) {
+        printed = snprintf(insert, insertlen, "%lu seconds ago", elapsed_s);
+      } else {
+        printed = snprintf(insert, insertlen, "%lu minutes ago", elapsed_s / 60);
+      }
+    }
   } break;
   default:
     printed = 0;
     break;
   }
 
-  printf("IP replace address2  %s\n", ip4_addr);
   return (u16_t)printed;
 }
 

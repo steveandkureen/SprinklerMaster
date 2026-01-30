@@ -3,6 +3,7 @@
 #include "pico/cyw43_arch.h"
 #include "pico/flash.h"
 #include "pico/stdlib.h"
+#include "src/dht22.h"
 #include "src/network.h"
 #include "task.h"
 #include <pico/types.h>
@@ -49,6 +50,21 @@ void WebServer(void *pvParameters) {
   run_server(pvParameters);
 }
 
+// Sensor task - reads DHT11 every 3 seconds
+void SensorTask(void *pvParameters) {
+  dht_init();
+
+  // Wait a bit for sensor to stabilize
+  vTaskDelay(pdMS_TO_TICKS(2000));
+
+  while (true) {
+    if (!dht_read()) {
+      printf("Sensor: Read failed\n");
+    }
+    vTaskDelay(pdMS_TO_TICKS(3000));
+  }
+}
+
 int main() {
   stdio_init_all();
 
@@ -57,6 +73,7 @@ int main() {
   //  Create the LED task
   //  xTaskCreate(TurnOnLed, "TurnOnLed", 256, NULL, 4, NULL);
   xTaskCreate(WebServer, "WebServer", 1024, NULL, 1, NULL);
+  xTaskCreate(SensorTask, "SensorTask", 512, NULL, 0, NULL);
 
   // lcd_set_text(0, 0, "Tasks Created....");
   //  Start the FreeRTOS scheduler

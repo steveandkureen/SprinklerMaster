@@ -43,6 +43,7 @@ pico_set_lwip_httpd_content(pico_httpd_content INTERFACE
       ${CMAKE_CURRENT_LIST_DIR}/content/welcome.shtml
       ${CMAKE_CURRENT_LIST_DIR}/content/dashboard.html
       ${CMAKE_CURRENT_LIST_DIR}/content/404.html
+      ${CMAKE_CURRENT_LIST_DIR}/content/api/sensors.json
       )
 
 # Add executable. Default name is the project name, version 0.1
@@ -50,6 +51,7 @@ pico_set_lwip_httpd_content(pico_httpd_content INTERFACE
 add_executable(BasicRTOS
       BasicRTOS.c
       src/network.c
+      src/dht22.c
       lcd.c)
 
 
