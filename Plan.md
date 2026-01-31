@@ -20,7 +20,6 @@ SprinklerMaster is an automated irrigation system controller built on the Raspbe
 - **8-Channel Relay Module** (for zone control)
 - **LCD Display** (I2C interface)
 - **Temperature/Humidity Sensor** (DHT22 or similar)
-- **SD Card Module** (SPI interface for web asset storage and data persistence)
 
 ---
 
@@ -30,10 +29,6 @@ SprinklerMaster is an automated irrigation system controller built on the Raspbe
 |----------|-----------|---------|
 | GP0 | LCD | I2C SDA |
 | GP1 | LCD | I2C SCL |
-| GP2 | SD Card | SPI SCK (Clock) |
-| GP3 | SD Card | SPI MOSI (Master Out Slave In) |
-| GP4 | SD Card | SPI MISO (Master In Slave Out) |
-| GP5 | SD Card | SPI CS (Chip Select) |
 | GP10 | Relay 1 | Zone 1 Control |
 | GP11 | Relay 2 | Zone 2 Control |
 | GP12 | Relay 3 | Zone 3 Control |
@@ -72,7 +67,7 @@ SprinklerMaster is an automated irrigation system controller built on the Raspbe
 - Bypasses scheduling system but respects single-zone-active constraint
 
 ### 3. Web Interface
-The Pico W hosts a web server that serves pages from the SD card.
+The Pico W hosts a web server that serves embedded web assets from firmware.
 
 #### Features
 - Create, edit, and delete schedules
@@ -85,10 +80,9 @@ The Pico W hosts a web server that serves pages from the SD card.
 - View schedule conflict warnings
 
 #### Storage
-- HTML templates stored on SD card
-- CSS files stored on SD card
-- JavaScript files stored on SD card
-- Images and icons stored on SD card
+- HTML, CSS, and JavaScript files are embedded in firmware at compile time
+- Served directly from flash memory
+- No external storage required for web assets
 
 ### 4. LCD Display
 
@@ -124,14 +118,12 @@ The Pico W hosts a web server that serves pages from the SD card.
 - Resolve conflicts by priority or timestamp
 
 ### Data Persistence
-- **SD Card Storage (FAT32):**
-  - Schedules saved to SD card
-  - Zone configurations saved to SD card
-  - WiFi credentials saved to SD card
-  - All data persists through power outages
-  - SD card can be removed and edited on any computer
-  - Easy backup by copying SD card contents
-- **Pico W Flash:** Only stores the main program code
+- **Flash Storage:**
+  - Configuration stored in dedicated flash sector (last 4KB at `0x3FF000`)
+  - Schedules, zone configurations, and WiFi credentials persist through power outages
+  - CRC32 validation ensures data integrity
+  - Uses `flash_safe_execute()` for FreeRTOS-safe flash operations
+- **Pico W Flash:** Stores both program code and configuration data
 
 ---
 
@@ -150,7 +142,7 @@ The system will be organized into multiple FreeRTOS tasks for concurrent operati
 
 2. **Web Server Task** (Medium Priority)
    - Handles HTTP requests
-   - Serves files from SD card
+   - Serves embedded web assets from flash
    - Processes REST API calls
    - Manages client connections
 
@@ -180,7 +172,7 @@ The system will be organized into multiple FreeRTOS tasks for concurrent operati
 #### Task Synchronization
 - **Mutexes:** Protect shared resources (relay states, schedules, configuration)
 - **Queues:** Inter-task communication for zone control commands
-- **Semaphores:** Coordinate access to I2C, SPI, and SD card
+- **Semaphores:** Coordinate access to I2C and flash operations
 - **Event Groups:** Signal system state changes (WiFi connected, zone active, etc.)
 
 ### Software Components
@@ -201,16 +193,16 @@ The system will be organized into multiple FreeRTOS tasks for concurrent operati
 - Periodic reading of temperature/humidity
 - Data caching for display and web interface
 
-#### 4. SD Card Interface
-- SPI communication with SD card
-- File system access (FAT32)
-- Read HTML/CSS/JS/image files for web server
-- Read/write schedule and configuration files
-- JSON or CSV format for configuration data
+#### 4. Flash Storage Module
+- Configuration stored in last 4KB flash sector (`0x3FF000`)
+- Safe from firmware growth
+- FreeRTOS-safe operations using `flash_safe_execute()`
+- CRC32 validation on read/write
+- Automatic loading of defaults if flash is empty or corrupted
 
 #### 5. Web Server
 - HTTP server running on Pico W
-- Serve static files from SD card
+- Serve embedded static files from flash
 - REST API endpoints for:
   - Get/set schedules
   - Get/set zone configurations
@@ -232,14 +224,47 @@ The system will be organized into multiple FreeRTOS tasks for concurrent operati
 - Handle reconnection on network loss
 
 #### 8. Configuration Manager
-- Load/save WiFi credentials from SD card
-- Load/save zone configurations from SD card
-- Load/save schedules from SD card
-- Persistent storage in JSON format on SD card
+- Load/save WiFi credentials from flash
+- Load/save zone configurations from flash
+- Load/save schedules from flash
+- Binary format with CRC32 integrity check
 
 ---
 
 ## Data Structures
+
+### Flash Configuration Structure (~800 bytes)
+```c
+typedef struct {
+    uint16_t magic;              // 0xCAFE for validity
+    uint16_t version;            // Config format version
+
+    // WiFi (98 bytes)
+    char ssid[33];
+    char password[65];
+
+    // Zones (8 * 36 = 288 bytes)
+    struct {
+        char name[32];
+        uint8_t gpio_pin;
+        uint8_t enabled;
+        uint8_t reserved[2];
+    } zones[8];
+
+    // Schedules (20 * 8 = 160 bytes)
+    struct {
+        uint8_t zone_id;
+        uint8_t type;             // 0=permanent, 1=interval, 2=manual
+        uint8_t day_mask;         // Bits: Sun=0, Mon=1, etc.
+        uint8_t hour;
+        uint8_t minute;
+        uint8_t enabled;
+        uint16_t duration_mins;
+    } schedules[20];
+
+    uint32_t crc32;              // Data integrity check
+} sprinkler_config_t;
+```
 
 ### Zone Configuration
 ```
@@ -290,31 +315,27 @@ Status {
 
 ---
 
-## SD Card File Structure
+## Flash Storage Layout
 
+### Configuration Sector
+- **Location:** Last 4KB sector at `0x3FF000`
+- **Size:** 4096 bytes (one flash sector)
+- **Format:** Binary structure with CRC32 validation
+
+### Key Functions
+```c
+void config_init(void);                    // Load from flash or defaults
+bool config_save(void);                    // Write to flash
+sprinkler_config_t* config_get(void);      // Get current config
+void config_set_wifi(const char* ssid, const char* password);
+void config_set_zone(uint8_t id, const char* name, uint8_t pin, bool enabled);
+void config_set_schedule(uint8_t id, schedule_t* sched);
 ```
-/sdcard/
-  /web/
-    /html/
-      index.html
-      schedules.html
-      zones.html
-      status.html
-    /css/
-      style.css
-    /js/
-      app.js
-      api.js
-    /images/
-      logo.png
-      icons/
-  /config/
-    wifi.json
-    zones.json
-    schedules.json
-  /logs/
-    watering_log.txt
-```
+
+### Web Assets
+- HTML, CSS, and JavaScript files are embedded in firmware
+- Converted to C arrays at compile time using `makefsdata` or similar tool
+- Served directly from program flash memory
 
 ---
 
@@ -342,27 +363,33 @@ Status {
 - Test relay control
 - Test LCD display
 - Test temperature/humidity sensor
-- Test SD card read/write (FAT32)
 
-### Phase 2: Core Scheduling System
+### Phase 2: Flash Configuration Storage
+- Implement flash storage module (`config_flash.c/h`)
+- Define configuration data structure
+- Implement CRC32 validation
+- Implement `flash_safe_execute()` for FreeRTOS safety
+- Test save/load across power cycles
+- Implement default configuration loading
+
+### Phase 3: Core Scheduling System
 - Create FreeRTOS tasks for scheduler and zone control
 - Implement task synchronization (mutexes, queues, semaphores)
 - Implement time synchronization (NTP)
 - Build scheduler engine
 - Implement single-zone constraint
 - Test basic scheduling
-- Implement SD card configuration save/load
+- Integrate flash configuration for schedule persistence
 
-### Phase 3: Web Server and Interface
+### Phase 4: Web Server and Interface
 - Create FreeRTOS tasks for web server, LCD display, and sensors
 - Set up HTTP server on Pico W (running in dedicated task)
-- Create HTML/CSS/JS templates
-- Store templates on SD card
+- Embed HTML/CSS/JS templates in firmware
 - Implement REST API endpoints
 - Build web UI for schedule management
 - Implement WiFi management task
 
-### Phase 4: Integration and Testing
+### Phase 5: Integration and Testing
 - Integrate all FreeRTOS tasks
 - Test task synchronization and communication
 - Test complete workflows
@@ -371,7 +398,7 @@ Status {
 - Test persistence across reboots and power outages
 - Verify task priorities and timing constraints
 
-### Phase 5: Polish and Optimization
+### Phase 6: Polish and Optimization
 - Optimize FreeRTOS heap and stack sizes for each task
 - Fine-tune task priorities for optimal performance
 - Optimize memory usage
@@ -391,7 +418,7 @@ Status {
 6. **Backup Power:** Should there be battery backup for graceful shutdown?
 7. **Error Handling:** What should happen if a relay fails or sensor becomes unavailable?
 8. **Security:** Should the web interface have authentication?
-9. **SD Card Failure:** What should happen if SD card is removed or fails during operation?
+9. **Flash Wear:** How to minimize flash write cycles? Consider wear leveling for frequently updated data?
 
 ---
 
@@ -408,7 +435,7 @@ Status {
 - Schedules persist across power cycles and power outages
 - No schedule conflicts go undetected
 - System runs reliably 24/7 without task starvation or crashes
-- SD card can be removed, backed up, and edited on a computer
+- Flash configuration survives power loss with CRC validation
 
 ---
 

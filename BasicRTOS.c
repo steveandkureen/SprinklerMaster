@@ -3,8 +3,11 @@
 #include "pico/cyw43_arch.h"
 #include "pico/flash.h"
 #include "pico/stdlib.h"
+#include "src/config_flash.h"
 #include "src/dht22.h"
 #include "src/network.h"
+#include "src/zones.h"
+#include "src/scheduler.h"
 #include "task.h"
 #include <pico/types.h>
 #include <stdio.h>
@@ -68,12 +71,24 @@ void SensorTask(void *pvParameters) {
 int main() {
   stdio_init_all();
 
+  // Wait for USB serial to connect (so we can see boot messages)
+  sleep_ms(2000);
+
+  // Initialize configuration from flash storage
+  config_init();
+
+  // Initialize zone GPIO pins
+  zones_init();
+
   lcd_init(); // init the lcd
   lcd_set_text(0, 0, "Starting up....");
   //  Create the LED task
   //  xTaskCreate(TurnOnLed, "TurnOnLed", 256, NULL, 4, NULL);
   xTaskCreate(WebServer, "WebServer", 1024, NULL, 1, NULL);
   xTaskCreate(SensorTask, "SensorTask", 512, NULL, 0, NULL);
+
+  // Initialize scheduler task (handles automatic zone triggering)
+  scheduler_init();
 
   // lcd_set_text(0, 0, "Tasks Created....");
   //  Start the FreeRTOS scheduler

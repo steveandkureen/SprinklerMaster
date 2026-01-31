@@ -1,0 +1,10 @@
+{"zones":[
+{"id":1,"name":"<!--#z1name-->","pin":<!--#z1pin-->,"enabled":<!--#z1en-->},
+{"id":2,"name":"<!--#z2name-->","pin":<!--#z2pin-->,"enabled":<!--#z2en-->},
+{"id":3,"name":"<!--#z3name-->","pin":<!--#z3pin-->,"enabled":<!--#z3en-->},
+{"id":4,"name":"<!--#z4name-->","pin":<!--#z4pin-->,"enabled":<!--#z4en-->},
+{"id":5,"name":"<!--#z5name-->","pin":<!--#z5pin-->,"enabled":<!--#z5en-->},
+{"id":6,"name":"<!--#z6name-->","pin":<!--#z6pin-->,"enabled":<!--#z6en-->},
+{"id":7,"name":"<!--#z7name-->","pin":<!--#z7pin-->,"enabled":<!--#z7en-->},
+{"id":8,"name":"<!--#z8name-->","pin":<!--#z8pin-->,"enabled":<!--#z8en-->}
+]}

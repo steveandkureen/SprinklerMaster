@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SprinklerMaster - Schedule Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 min-h-screen p-4">
+    <div class="max-w-4xl mx-auto">
+
+        <!-- Header -->
+        <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 mb-6 border border-white/20">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-white mb-1">Schedule Manager</h1>
+                    <p class="text-purple-200">Create and manage irrigation schedules</p>
+                </div>
+                <a href="/dashboard.html" class="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/50 text-purple-100 px-4 py-2 rounded-lg font-semibold transition-all">
+                    Back to Dashboard
+                </a>
+            </div>
+        </div>
+
+        <!-- Status Message -->
+        <div id="status-message" class="hidden bg-green-500/20 border border-green-500/50 rounded-xl p-4 mb-6">
+            <p class="text-green-200 text-center font-medium" id="status-text">Schedule saved!</p>
+        </div>
+
+        <!-- Add New Schedule Button -->
+        <div class="mb-6">
+            <button onclick="showAddForm()" id="add-btn" class="bg-green-500/20 hover:bg-green-500/30 border border-green-500/50 text-green-100 px-6 py-3 rounded-lg font-semibold transition-all">
+                + Add New Schedule
+            </button>
+        </div>
+
+        <!-- Add/Edit Schedule Form (hidden by default) -->
+        <div id="schedule-form" class="hidden bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 mb-6 border border-white/20">
+            <h2 class="text-xl font-semibold text-white mb-4" id="form-title">New Schedule</h2>
+            <input type="hidden" id="edit-id" value="">
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Zone Selection -->
+                <div>
+                    <label class="text-purple-200 text-sm mb-1 block">Zone</label>
+                    <select id="sched-zone" class="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500">
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+
+                <!-- Schedule Type -->
+                <div>
+                    <label class="text-purple-200 text-sm mb-1 block">Schedule Type</label>
+                    <select id="sched-type" onchange="toggleScheduleType()" class="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500">
+                        <option value="0">Weekly (specific days)</option>
+                        <option value="1">Interval (every N days)</option>
+                    </select>
+                </div>
+
+                <!-- Duration -->
+                <div>
+                    <label class="text-purple-200 text-sm mb-1 block">Duration (minutes)</label>
+                    <input type="number" id="sched-duration" min="1" max="240" value="30"
+                           class="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500">
+                </div>
+
+                <!-- Start Time -->
+                <div>
+                    <label class="text-purple-200 text-sm mb-1 block">Start Time</label>
+                    <input type="time" id="sched-time" value="06:00"
+                           class="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500">
+                </div>
+
+                <!-- Enabled -->
+                <div class="flex items-center gap-3 pt-6">
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="sched-enabled" checked class="sr-only peer">
+                        <div class="w-11 h-6 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                    </label>
+                    <span class="text-purple-200">Enabled</span>
+                </div>
+            </div>
+
+            <!-- Days of Week (for weekly type) -->
+            <div id="weekly-options" class="mt-4">
+                <label class="text-purple-200 text-sm mb-2 block">Days of Week</label>
+                <div class="flex flex-wrap gap-2">
+                    <label class="cursor-pointer">
+                        <input type="checkbox" id="day-0" class="sr-only peer">
+                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-purple-200 peer-checked:bg-purple-500 peer-checked:text-white peer-checked:border-purple-500 transition-all inline-block">Sun</span>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="checkbox" id="day-1" class="sr-only peer">
+                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-purple-200 peer-checked:bg-purple-500 peer-checked:text-white peer-checked:border-purple-500 transition-all inline-block">Mon</span>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="checkbox" id="day-2" class="sr-only peer">
+                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-purple-200 peer-checked:bg-purple-500 peer-checked:text-white peer-checked:border-purple-500 transition-all inline-block">Tue</span>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="checkbox" id="day-3" class="sr-only peer">
+                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-purple-200 peer-checked:bg-purple-500 peer-checked:text-white peer-checked:border-purple-500 transition-all inline-block">Wed</span>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="checkbox" id="day-4" class="sr-only peer">
+                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-purple-200 peer-checked:bg-purple-500 peer-checked:text-white peer-checked:border-purple-500 transition-all inline-block">Thu</span>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="checkbox" id="day-5" class="sr-only peer">
+                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-purple-200 peer-checked:bg-purple-500 peer-checked:text-white peer-checked:border-purple-500 transition-all inline-block">Fri</span>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="checkbox" id="day-6" class="sr-only peer">
+                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-purple-200 peer-checked:bg-purple-500 peer-checked:text-white peer-checked:border-purple-500 transition-all inline-block">Sat</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Interval Options (for interval type) -->
+            <div id="interval-options" class="mt-4 hidden">
+                <label class="text-purple-200 text-sm mb-2 block">Run Every</label>
+                <div class="flex items-center gap-3">
+                    <input type="number" id="sched-interval" min="1" max="30" value="2"
+                           class="w-24 bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500">
+                    <span class="text-purple-200">days</span>
+                </div>
+                <p class="text-purple-400 text-xs mt-2">Schedule will run at the specified time every N days</p>
+            </div>
+
+            <!-- Form Buttons -->
+            <div class="mt-6 flex justify-end gap-4">
+                <button onclick="hideForm()" class="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-6 py-2 rounded-lg font-semibold transition-all">
+                    Cancel
+                </button>
+                <button onclick="saveSchedule()" class="bg-green-500/20 hover:bg-green-500/30 border border-green-500/50 text-green-100 px-6 py-2 rounded-lg font-semibold transition-all">
+                    Save Schedule
+                </button>
+            </div>
+        </div>
+
+        <!-- Existing Schedules -->
+        <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 border border-white/20">
+            <h2 class="text-xl font-semibold text-white mb-4">Existing Schedules</h2>
+            <div id="schedules-list" class="space-y-3">
+                <!-- Populated by JS -->
+            </div>
+            <div id="no-schedules" class="hidden text-center py-8">
+                <p class="text-purple-300">No schedules configured.</p>
+                <p class="text-purple-400 text-sm mt-1">Click "Add New Schedule" to create one.</p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center mt-8 pb-8">
+            <p class="text-purple-300 text-sm">
+                Powered by FreeRTOS - lwIP - Pico SDK 2.2.0
+            </p>
+        </div>
+    </div>
+
+    <script>
+        let zones = [];
+        let schedules = [];
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const SCHEDULE_TYPE_WEEKLY = 0;
+        const SCHEDULE_TYPE_INTERVAL = 1;
+
+        function formatTime(hour, minute) {
+            const h = hour % 12 || 12;
+            const ampm = hour < 12 ? 'AM' : 'PM';
+            return `${h}:${minute.toString().padStart(2, '0')} ${ampm}`;
+        }
+
+        function formatDays(dayMask, type) {
+            if (type === SCHEDULE_TYPE_INTERVAL) {
+                if (dayMask === 1) return 'Every day';
+                return `Every ${dayMask} days`;
+            }
+
+            // Weekly type
+            if (dayMask === 127) return 'Every day';
+            if (dayMask === 62) return 'Weekdays';
+            if (dayMask === 65) return 'Weekends';
+
+            const days = [];
+            for (let i = 0; i < 7; i++) {
+                if (dayMask & (1 << i)) {
+                    days.push(dayNames[i]);
+                }
+            }
+            return days.join(', ') || 'No days';
+        }
+
+        function toggleScheduleType() {
+            const type = parseInt(document.getElementById('sched-type').value);
+            const weeklyOptions = document.getElementById('weekly-options');
+            const intervalOptions = document.getElementById('interval-options');
+
+            if (type === SCHEDULE_TYPE_INTERVAL) {
+                weeklyOptions.classList.add('hidden');
+                intervalOptions.classList.remove('hidden');
+            } else {
+                weeklyOptions.classList.remove('hidden');
+                intervalOptions.classList.add('hidden');
+            }
+        }
+
+        function getZoneName(zoneId) {
+            const zone = zones.find(z => z.id === zoneId);
+            return zone ? zone.name : `Zone ${zoneId}`;
+        }
+
+        function createScheduleCard(sched) {
+            const zoneName = getZoneName(sched.zone);
+            const timeStr = formatTime(sched.hour, sched.minute);
+            const daysStr = formatDays(sched.days, sched.type);
+            const typeLabel = sched.type === SCHEDULE_TYPE_INTERVAL ? 'Interval' : 'Weekly';
+            const statusClass = sched.enabled
+                ? 'bg-green-500/20 border-green-500/50'
+                : 'bg-white/5 border-white/10 opacity-60';
+
+            return `
+                <div class="${statusClass} rounded-xl p-4 border">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                <h3 class="text-lg font-semibold text-white">${zoneName}</h3>
+                                <span class="text-xs bg-purple-500/30 text-purple-200 px-2 py-0.5 rounded">${typeLabel}</span>
+                                ${sched.enabled ? '' : '<span class="text-xs bg-white/20 text-purple-200 px-2 py-0.5 rounded">Disabled</span>'}
+                            </div>
+                            <p class="text-purple-200 text-sm">
+                                ${timeStr} - ${sched.duration} min
+                            </p>
+                            <p class="text-purple-300 text-sm">${daysStr}</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="editSchedule(${sched.id})" class="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/50 text-purple-100 px-4 py-2 rounded-lg text-sm transition-all">
+                                Edit
+                            </button>
+                            <button onclick="deleteSchedule(${sched.id})" class="bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-100 px-4 py-2 rounded-lg text-sm transition-all">
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadZones() {
+            try {
+                const response = await fetch('/api/zones');
+                const data = await response.json();
+                zones = data.zones.filter(z => z.enabled);
+
+                // Populate zone dropdown
+                const select = document.getElementById('sched-zone');
+                select.innerHTML = zones.map(z =>
+                    `<option value="${z.id}">${z.name}</option>`
+                ).join('');
+            } catch (error) {
+                console.error('Error loading zones:', error);
+            }
+        }
+
+        async function loadSchedules() {
+            try {
+                const response = await fetch('/api/schedules');
+                const data = await response.json();
+                schedules = data.schedules;
+
+                const container = document.getElementById('schedules-list');
+                const noSchedules = document.getElementById('no-schedules');
+
+                if (schedules.length === 0) {
+                    container.innerHTML = '';
+                    noSchedules.classList.remove('hidden');
+                } else {
+                    noSchedules.classList.add('hidden');
+                    container.innerHTML = schedules.map(s => createScheduleCard(s)).join('');
+                }
+            } catch (error) {
+                console.error('Error loading schedules:', error);
+            }
+        }
+
+        function showAddForm() {
+            document.getElementById('form-title').textContent = 'New Schedule';
+            document.getElementById('edit-id').value = '';
+            document.getElementById('sched-zone').value = zones[0]?.id || 1;
+            document.getElementById('sched-type').value = '0';
+            document.getElementById('sched-duration').value = '30';
+            document.getElementById('sched-time').value = '06:00';
+            document.getElementById('sched-enabled').checked = true;
+            document.getElementById('sched-interval').value = '2';
+
+            // Clear all days
+            for (let i = 0; i < 7; i++) {
+                document.getElementById(`day-${i}`).checked = false;
+            }
+
+            // Reset type options visibility
+            toggleScheduleType();
+
+            document.getElementById('schedule-form').classList.remove('hidden');
+            document.getElementById('add-btn').classList.add('hidden');
+        }
+
+        function hideForm() {
+            document.getElementById('schedule-form').classList.add('hidden');
+            document.getElementById('add-btn').classList.remove('hidden');
+        }
+
+        function editSchedule(id) {
+            const sched = schedules.find(s => s.id === id);
+            if (!sched) return;
+
+            document.getElementById('form-title').textContent = 'Edit Schedule';
+            document.getElementById('edit-id').value = id;
+            document.getElementById('sched-zone').value = sched.zone;
+            document.getElementById('sched-type').value = sched.type.toString();
+            document.getElementById('sched-duration').value = sched.duration;
+            document.getElementById('sched-time').value =
+                `${sched.hour.toString().padStart(2, '0')}:${sched.minute.toString().padStart(2, '0')}`;
+            document.getElementById('sched-enabled').checked = sched.enabled;
+
+            if (sched.type === SCHEDULE_TYPE_INTERVAL) {
+                // For interval type, days field stores the interval
+                document.getElementById('sched-interval').value = sched.days;
+                // Clear day checkboxes
+                for (let i = 0; i < 7; i++) {
+                    document.getElementById(`day-${i}`).checked = false;
+                }
+            } else {
+                // For weekly type, set day checkboxes
+                document.getElementById('sched-interval').value = '2';
+                for (let i = 0; i < 7; i++) {
+                    document.getElementById(`day-${i}`).checked = (sched.days & (1 << i)) !== 0;
+                }
+            }
+
+            // Update visibility
+            toggleScheduleType();
+
+            document.getElementById('schedule-form').classList.remove('hidden');
+            document.getElementById('add-btn').classList.add('hidden');
+        }
+
+        async function saveSchedule() {
+            let editId = document.getElementById('edit-id').value;
+            const zone = document.getElementById('sched-zone').value;
+            const type = parseInt(document.getElementById('sched-type').value);
+            const duration = document.getElementById('sched-duration').value;
+            const time = document.getElementById('sched-time').value;
+            const enabled = document.getElementById('sched-enabled').checked;
+
+            // Calculate days value based on type
+            let daysValue = 0;
+            if (type === SCHEDULE_TYPE_INTERVAL) {
+                // For interval type, store the interval in days field
+                daysValue = parseInt(document.getElementById('sched-interval').value) || 2;
+            } else {
+                // For weekly type, calculate day mask
+                for (let i = 0; i < 7; i++) {
+                    if (document.getElementById(`day-${i}`).checked) {
+                        daysValue |= (1 << i);
+                    }
+                }
+            }
+
+            // Parse time
+            const [hour, minute] = time.split(':').map(Number);
+
+            // Find next available ID if adding new
+            if (!editId) {
+                const usedIds = schedules.map(s => s.id);
+                for (let i = 1; i <= 20; i++) {
+                    if (!usedIds.includes(i)) {
+                        editId = i;
+                        break;
+                    }
+                }
+                if (!editId) {
+                    alert('Maximum schedules reached (20)');
+                    return;
+                }
+            }
+
+            const params = new URLSearchParams({
+                id: editId,
+                zone: zone,
+                type: type,
+                days: daysValue,
+                hour: hour,
+                min: minute,
+                dur: duration,
+                en: enabled ? 1 : 0
+            });
+
+            try {
+                const response = await fetch(`/api/schedules/save?${params}`);
+                if (response.ok) {
+                    showStatus('Schedule saved!', 'green');
+                    hideForm();
+                    await loadSchedules();
+                } else {
+                    showStatus('Failed to save schedule', 'red');
+                }
+            } catch (error) {
+                console.error('Error saving schedule:', error);
+                showStatus('Error saving schedule', 'red');
+            }
+        }
+
+        async function deleteSchedule(id) {
+            if (!confirm('Delete this schedule?')) return;
+
+            try {
+                const response = await fetch(`/api/schedules/delete?id=${id}`);
+                if (response.ok) {
+                    showStatus('Schedule deleted', 'green');
+                    await loadSchedules();
+                } else {
+                    showStatus('Failed to delete schedule', 'red');
+                }
+            } catch (error) {
+                console.error('Error deleting schedule:', error);
+                showStatus('Error deleting schedule', 'red');
+            }
+        }
+
+        function showStatus(message, color) {
+            const el = document.getElementById('status-message');
+            const text = document.getElementById('status-text');
+            text.textContent = message;
+
+            el.className = `border rounded-xl p-4 mb-6 ${
+                color === 'green'
+                    ? 'bg-green-500/20 border-green-500/50'
+                    : 'bg-red-500/20 border-red-500/50'
+            }`;
+            text.className = `text-center font-medium ${
+                color === 'green' ? 'text-green-200' : 'text-red-200'
+            }`;
+
+            el.classList.remove('hidden');
+            setTimeout(() => el.classList.add('hidden'), 3000);
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadZones();
+            await loadSchedules();
+        });
+    </script>
+</body>
+</html>

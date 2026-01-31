@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SprinklerMaster - Zone Settings</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 min-h-screen p-4">
+    <div class="max-w-4xl mx-auto">
+
+        <!-- Header -->
+        <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 mb-6 border border-white/20">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-white mb-1">Zone Settings</h1>
+                    <p class="text-purple-200">Configure irrigation zone names and status</p>
+                </div>
+                <a href="/dashboard.html" class="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/50 text-purple-100 px-4 py-2 rounded-lg font-semibold transition-all">
+                    Back to Dashboard
+                </a>
+            </div>
+        </div>
+
+        <!-- Status Message -->
+        <div id="status-message" class="hidden bg-green-500/20 border border-green-500/50 rounded-xl p-4 mb-6">
+            <p class="text-green-200 text-center font-medium">Settings saved successfully!</p>
+        </div>
+
+        <!-- Zone Configuration Form -->
+        <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 border border-white/20">
+            <div class="space-y-4" id="zones-form">
+                <!-- Zone cards will be populated by JavaScript -->
+            </div>
+
+            <!-- Save Button -->
+            <div class="mt-6 flex justify-end gap-4">
+                <button onclick="resetForm()" class="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-6 py-3 rounded-lg font-semibold transition-all">
+                    Reset
+                </button>
+                <button onclick="saveZones()" class="bg-green-500/20 hover:bg-green-500/30 border border-green-500/50 text-green-100 px-6 py-3 rounded-lg font-semibold transition-all">
+                    Save Changes
+                </button>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center mt-8 pb-8">
+            <p class="text-purple-300 text-sm">
+                Powered by FreeRTOS - lwIP - Pico SDK 2.2.0
+            </p>
+        </div>
+    </div>
+
+    <script>
+        let originalZones = [];
+
+        function createZoneCard(zone) {
+            return `
+                <div class="bg-white/5 rounded-xl p-5 border border-white/10">
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+                        <div class="flex items-center gap-3 min-w-0 flex-1">
+                            <div class="bg-purple-500/20 rounded-lg px-3 py-2 text-center min-w-[60px]">
+                                <p class="text-purple-300 text-xs font-semibold">ZONE</p>
+                                <p class="text-white text-xl font-bold">${zone.id}</p>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <label class="text-purple-200 text-sm mb-1 block">Name</label>
+                                <input type="text"
+                                       id="zone-name-${zone.id}"
+                                       value="${zone.name}"
+                                       maxlength="31"
+                                       class="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-purple-300 focus:outline-none focus:border-purple-500">
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="text-center">
+                                <p class="text-purple-200 text-sm mb-1">GPIO</p>
+                                <p class="text-white font-mono bg-white/10 px-3 py-2 rounded-lg">${zone.pin}</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-purple-200 text-sm mb-1">Enabled</p>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox"
+                                           id="zone-enabled-${zone.id}"
+                                           ${zone.enabled ? 'checked' : ''}
+                                           class="sr-only peer">
+                                    <div class="w-11 h-6 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadZones() {
+            try {
+                const response = await fetch('/api/zones');
+                const data = await response.json();
+                originalZones = data.zones;
+
+                const container = document.getElementById('zones-form');
+                container.innerHTML = data.zones.map(zone => createZoneCard(zone)).join('');
+            } catch (error) {
+                console.error('Error loading zones:', error);
+            }
+        }
+
+        function resetForm() {
+            originalZones.forEach(zone => {
+                document.getElementById(`zone-name-${zone.id}`).value = zone.name;
+                document.getElementById(`zone-enabled-${zone.id}`).checked = zone.enabled;
+            });
+        }
+
+        async function saveZones() {
+            const zones = [];
+            for (let i = 1; i <= 8; i++) {
+                const name = document.getElementById(`zone-name-${i}`).value;
+                const enabled = document.getElementById(`zone-enabled-${i}`).checked;
+                zones.push({ id: i, name: name, enabled: enabled });
+            }
+
+            try {
+                // Build query string for GET request (simpler for lwIP)
+                const params = zones.map(z =>
+                    `z${z.id}n=${encodeURIComponent(z.name)}&z${z.id}e=${z.enabled ? 1 : 0}`
+                ).join('&');
+
+                const response = await fetch(`/api/zones/save?${params}`);
+
+                if (response.ok) {
+                    // Show success message
+                    const statusEl = document.getElementById('status-message');
+                    statusEl.classList.remove('hidden');
+                    setTimeout(() => statusEl.classList.add('hidden'), 3000);
+
+                    // Reload zones to confirm save
+                    await loadZones();
+                } else {
+                    alert('Failed to save settings');
+                }
+            } catch (error) {
+                console.error('Error saving zones:', error);
+                alert('Error saving settings: ' + error.message);
+            }
+        }
+
+        // Check for success parameter in URL
+        function checkStatus() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('saved') === '1') {
+                const statusEl = document.getElementById('status-message');
+                statusEl.classList.remove('hidden');
+                setTimeout(() => statusEl.classList.add('hidden'), 3000);
+                // Clean URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadZones();
+            checkStatus();
+        });
+    </script>
+</body>
+</html>

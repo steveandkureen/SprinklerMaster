@@ -68,18 +68,48 @@
         <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 mt-6 border border-white/20">
             <h2 class="text-2xl font-semibold text-white mb-4">Quick Actions</h2>
             <div class="flex flex-wrap gap-3">
-                <button class="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/50 text-purple-100 px-6 py-3 rounded-lg font-semibold transition-all">
+                <button onclick="openManualControl()" class="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/50 text-purple-100 px-6 py-3 rounded-lg font-semibold transition-all">
                     Manual Control
                 </button>
-                <button class="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/50 text-purple-100 px-6 py-3 rounded-lg font-semibold transition-all">
+                <button onclick="stopAllZones()" class="bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-100 px-6 py-3 rounded-lg font-semibold transition-all">
+                    Stop All
+                </button>
+                <a href="/schedules.shtml" class="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/50 text-purple-100 px-6 py-3 rounded-lg font-semibold transition-all inline-block">
                     Schedule Manager
-                </button>
-                <button class="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/50 text-purple-100 px-6 py-3 rounded-lg font-semibold transition-all">
+                </a>
+                <a href="/zones.shtml" class="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/50 text-purple-100 px-6 py-3 rounded-lg font-semibold transition-all inline-block">
                     Zone Settings
-                </button>
-                <button class="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/50 text-purple-100 px-6 py-3 rounded-lg font-semibold transition-all">
-                    System Settings
-                </button>
+                </a>
+            </div>
+        </div>
+
+        <!-- Manual Control Modal -->
+        <div id="manual-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden items-center justify-center z-50">
+            <div class="bg-slate-800 rounded-2xl shadow-2xl p-6 m-4 max-w-lg w-full border border-white/20">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-semibold text-white">Manual Control</h2>
+                    <button onclick="closeManualControl()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+                </div>
+                <div class="mb-4">
+                    <label class="text-purple-200 text-sm">Run Duration</label>
+                    <select id="manual-duration" class="w-full mt-1 bg-white/10 border border-white/20 text-white px-3 py-2 rounded-lg">
+                        <option value="5">5 minutes</option>
+                        <option value="10" selected>10 minutes</option>
+                        <option value="15">15 minutes</option>
+                        <option value="20">20 minutes</option>
+                        <option value="30">30 minutes</option>
+                        <option value="45">45 minutes</option>
+                        <option value="60">60 minutes</option>
+                    </select>
+                </div>
+                <div id="manual-zones" class="space-y-2 max-h-64 overflow-y-auto">
+                    <!-- Zones will be populated here -->
+                </div>
+                <div class="mt-4 pt-4 border-t border-white/10">
+                    <button onclick="stopAllZones(); closeManualControl();" class="w-full bg-red-500/30 hover:bg-red-500/40 border border-red-500/50 text-red-100 px-4 py-2 rounded-lg font-semibold transition-all">
+                        Stop All Zones
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -95,99 +125,14 @@
     <script>
         // API Configuration
         const API_BASE_URL = '/api';
-        const USE_MOCK_DATA = false;  // Using real sensor data from DHT11
+        const SCHEDULE_TYPE_WEEKLY = 0;
+        const SCHEDULE_TYPE_INTERVAL = 1;
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-        // Mock API Endpoints
-        const MockAPI = {
-            // GET /api/status
-            getSystemStatus: async () => {
-                return {
-                    online: true,
-                    timestamp: new Date().toISOString(),
-                    uptime: 86400 // seconds
-                };
-            },
+        let schedules = [];
 
-            // GET /api/sensors
-            getSensorData: async () => {
-                return {
-                    temperature: 72,
-                    humidity: 45,
-                    lastUpdate: "2 minutes ago"
-                };
-            },
-
-            // GET /api/zones
-            getZones: async () => {
-                return [
-                    {
-                        id: 1,
-                        name: "Front Lawn",
-                        status: "active",
-                        remaining: "12 min",
-                        nextRun: "Tomorrow 6:00 AM",
-                        duration: "30 min"
-                    },
-                    {
-                        id: 2,
-                        name: "Garden Bed",
-                        status: "idle",
-                        nextRun: "Today 8:00 PM",
-                        duration: "15 min"
-                    },
-                    {
-                        id: 3,
-                        name: "Back Yard",
-                        status: "idle",
-                        nextRun: "Mon/Wed/Fri 5:30 AM",
-                        duration: "25 min"
-                    },
-                    {
-                        id: 4,
-                        name: "Side Yard",
-                        status: "idle",
-                        nextRun: "Every 2 days 6:00 AM",
-                        duration: "10 min"
-                    },
-                    {
-                        id: 5,
-                        name: "Drip Line A",
-                        status: "idle",
-                        nextRun: "Daily 7:00 AM",
-                        duration: "20 min"
-                    },
-                    {
-                        id: 6,
-                        name: "Drip Line B",
-                        status: "scheduled",
-                        startsIn: "2h 15m",
-                        duration: "20 min"
-                    },
-                    {
-                        id: 7,
-                        name: "Vegetable Garden",
-                        status: "idle",
-                        nextRun: "Mon/Thu 6:30 AM",
-                        duration: "35 min"
-                    },
-                    {
-                        id: 8,
-                        name: "Flower Beds",
-                        status: "idle",
-                        nextRun: "Not scheduled",
-                        duration: "—"
-                    }
-                ];
-            }
-        };
-
-        // Real API Functions (will be used when USE_MOCK_DATA = false)
-        const RealAPI = {
-            getSystemStatus: async () => {
-                const response = await fetch(`${API_BASE_URL}/status`);
-                return await response.json();
-            },
-
+        // API Functions
+        const API = {
             getSensorData: async () => {
                 const response = await fetch(`${API_BASE_URL}/sensors`);
                 return await response.json();
@@ -196,11 +141,170 @@
             getZones: async () => {
                 const response = await fetch(`${API_BASE_URL}/zones`);
                 return await response.json();
+            },
+
+            getSchedules: async () => {
+                const response = await fetch(`${API_BASE_URL}/schedules`);
+                return await response.json();
+            },
+
+            getZoneStatus: async () => {
+                const response = await fetch(`${API_BASE_URL}/zones/status`);
+                return await response.json();
+            },
+
+            zoneOn: async (zoneId, duration = 10) => {
+                const response = await fetch(`${API_BASE_URL}/zones/on?id=${zoneId}&dur=${duration}`);
+                return await response.json();
+            },
+
+            zoneOff: async (zoneId) => {
+                const response = await fetch(`${API_BASE_URL}/zones/off?id=${zoneId}`);
+                return await response.json();
             }
         };
 
-        // API wrapper to switch between mock and real
-        const API = USE_MOCK_DATA ? MockAPI : RealAPI;
+        let activeZone = 0;
+        let remainingMins = 0;
+
+        // Get day of year (1-366)
+        function getDayOfYear(date) {
+            const start = new Date(date.getFullYear(), 0, 0);
+            const diff = date - start;
+            const oneDay = 1000 * 60 * 60 * 24;
+            return Math.floor(diff / oneDay);
+        }
+
+        // Calculate next run time for a schedule
+        function getNextRunTime(schedule) {
+            const now = new Date();
+
+            if (schedule.type === SCHEDULE_TYPE_INTERVAL) {
+                const interval = schedule.days;
+                const lastDay = schedule.lastDay || 0;
+                const lastYear = schedule.lastYear || 0;
+
+                // If never run, show that it will run today/next at scheduled time
+                if (lastDay === 0 || lastYear === 0) {
+                    const todayTime = new Date(now);
+                    todayTime.setHours(schedule.hour, schedule.minute, 0, 0);
+                    if (todayTime > now) {
+                        return { text: `Today ${formatTime(schedule.hour, schedule.minute)} (first run)`, date: todayTime };
+                    } else {
+                        const tomorrow = new Date(now);
+                        tomorrow.setDate(tomorrow.getDate() + 1);
+                        tomorrow.setHours(schedule.hour, schedule.minute, 0, 0);
+                        return { text: `Tomorrow ${formatTime(schedule.hour, schedule.minute)} (first run)`, date: tomorrow };
+                    }
+                }
+
+                // Calculate days since last run
+                const currentDay = getDayOfYear(now);
+                const currentYear = now.getFullYear();
+
+                let daysSinceLastRun;
+                if (currentYear === lastYear) {
+                    daysSinceLastRun = currentDay - lastDay;
+                } else {
+                    // Handle year wraparound
+                    const daysInLastYear = lastYear % 4 === 0 ? 366 : 365;
+                    daysSinceLastRun = (daysInLastYear - lastDay) + currentDay + (currentYear - lastYear - 1) * 365;
+                }
+
+                const daysUntilNext = interval - (daysSinceLastRun % interval);
+                const nextRun = new Date(now);
+
+                if (daysUntilNext === interval) {
+                    // Due today, check if time has passed
+                    const todayTime = new Date(now);
+                    todayTime.setHours(schedule.hour, schedule.minute, 0, 0);
+                    if (todayTime > now) {
+                        return { text: `Today ${formatTime(schedule.hour, schedule.minute)}`, date: todayTime };
+                    }
+                    // Time passed, next is in 'interval' days
+                    nextRun.setDate(nextRun.getDate() + interval);
+                } else {
+                    nextRun.setDate(nextRun.getDate() + daysUntilNext);
+                }
+
+                nextRun.setHours(schedule.hour, schedule.minute, 0, 0);
+                return { text: formatNextRun(nextRun, daysUntilNext === interval ? 0 : daysUntilNext), date: nextRun };
+            }
+
+            // Weekly schedule - find next matching day
+            const currentDay = now.getDay();
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+            const scheduleMinutes = schedule.hour * 60 + schedule.minute;
+
+            // Check each day starting from today
+            for (let offset = 0; offset < 7; offset++) {
+                const checkDay = (currentDay + offset) % 7;
+                if (schedule.days & (1 << checkDay)) {
+                    // This day is scheduled
+                    if (offset === 0 && currentMinutes >= scheduleMinutes) {
+                        // Today but time has passed, skip to next occurrence
+                        continue;
+                    }
+
+                    const nextRun = new Date(now);
+                    nextRun.setDate(now.getDate() + offset);
+                    nextRun.setHours(schedule.hour, schedule.minute, 0, 0);
+
+                    return { text: formatNextRun(nextRun, offset), date: nextRun };
+                }
+            }
+
+            // Check next week if no day found this week
+            for (let offset = 0; offset < 7; offset++) {
+                const checkDay = (currentDay + offset) % 7;
+                if (schedule.days & (1 << checkDay)) {
+                    const nextRun = new Date(now);
+                    nextRun.setDate(now.getDate() + offset + 7);
+                    nextRun.setHours(schedule.hour, schedule.minute, 0, 0);
+                    return { text: formatNextRun(nextRun, offset + 7), date: nextRun };
+                }
+            }
+
+            return { text: 'Not scheduled', date: null };
+        }
+
+        function formatTime(hour, minute) {
+            const h = hour % 12 || 12;
+            const ampm = hour < 12 ? 'AM' : 'PM';
+            return `${h}:${minute.toString().padStart(2, '0')} ${ampm}`;
+        }
+
+        function formatNextRun(date, daysFromNow) {
+            const timeStr = formatTime(date.getHours(), date.getMinutes());
+            if (daysFromNow === 0) {
+                return `Today ${timeStr}`;
+            } else if (daysFromNow === 1) {
+                return `Tomorrow ${timeStr}`;
+            } else {
+                return `${dayNames[date.getDay()]} ${timeStr}`;
+            }
+        }
+
+        // Get next scheduled run for a zone
+        function getZoneNextRun(zoneId) {
+            const zoneSchedules = schedules
+                .filter(s => s.zone === zoneId && s.enabled)
+                .map(s => ({ schedule: s, ...getNextRunTime(s) }))
+                .filter(s => s.date !== null || s.schedule.type === SCHEDULE_TYPE_INTERVAL)
+                .sort((a, b) => {
+                    if (a.date && b.date) return a.date - b.date;
+                    if (a.date) return -1;
+                    if (b.date) return 1;
+                    return 0;
+                });
+
+            if (zoneSchedules.length === 0) {
+                return { text: 'No schedule', duration: null };
+            }
+
+            const next = zoneSchedules[0];
+            return { text: next.text, duration: next.schedule.duration };
+        }
 
         // Update current time
         function updateTime() {
@@ -230,6 +334,10 @@
 
         // Create zone card HTML
         function createZoneCard(zone) {
+            const isActive = activeZone === zone.id;
+            const status = isActive ? 'active' : 'idle';
+            const nextRun = getZoneNextRun(zone.id);
+
             const statusColors = {
                 active: {
                     bg: 'bg-green-500/20',
@@ -239,15 +347,6 @@
                     badge: 'bg-green-500/30 text-green-100',
                     dot: 'bg-green-400 animate-pulse',
                     label: 'text-green-300'
-                },
-                scheduled: {
-                    bg: 'bg-blue-500/20',
-                    border: 'border-blue-500/50',
-                    hover: 'hover:bg-blue-500/30',
-                    text: 'text-blue-200',
-                    badge: 'bg-blue-500/30 text-blue-100',
-                    dot: 'bg-blue-400 animate-pulse',
-                    label: 'text-blue-300'
                 },
                 idle: {
                     bg: 'bg-white/5',
@@ -260,29 +359,14 @@
                 }
             };
 
-            const colors = statusColors[zone.status] || statusColors.idle;
+            const colors = statusColors[status];
 
             let statusContent = '';
-            if (zone.status === 'active') {
+            if (isActive) {
+                const timeDisplay = remainingMins > 0 ? ` (${remainingMins} min left)` : '';
                 statusContent = `
                     <div class="${colors.badge} rounded-lg px-3 py-2">
-                        <p class="font-semibold text-center">RUNNING</p>
-                        <p class="${colors.text} text-sm text-center">${zone.remaining} remaining</p>
-                    </div>
-                    <div class="text-xs ${colors.text}">
-                        <p class="font-semibold">Next Run:</p>
-                        <p>${zone.nextRun} (${zone.duration})</p>
-                    </div>
-                `;
-            } else if (zone.status === 'scheduled') {
-                statusContent = `
-                    <div class="${colors.badge} rounded-lg px-3 py-2">
-                        <p class="font-semibold text-center">SCHEDULED</p>
-                        <p class="${colors.text} text-sm text-center">Starts in ${zone.startsIn}</p>
-                    </div>
-                    <div class="text-xs ${colors.text}">
-                        <p class="font-semibold">Duration:</p>
-                        <p>${zone.duration}</p>
+                        <p class="font-semibold text-center">RUNNING${timeDisplay}</p>
                     </div>
                 `;
             } else {
@@ -290,15 +374,19 @@
                     <div class="${colors.badge} rounded-lg px-3 py-2">
                         <p class="font-semibold text-center">IDLE</p>
                     </div>
-                    <div class="text-xs ${colors.text}">
-                        <p class="font-semibold">Next Run:</p>
-                        <p>${zone.nextRun === 'Not scheduled' ? '<span class="text-purple-400">' + zone.nextRun + '</span>' : zone.nextRun + ' (' + zone.duration + ')'}</p>
-                    </div>
                 `;
             }
 
+            // Next run info
+            const nextRunContent = nextRun.text === 'No schedule'
+                ? `<p class="text-purple-400 text-xs">No schedule</p>`
+                : `<div class="text-xs ${colors.text}">
+                       <p class="font-semibold">Next Run:</p>
+                       <p>${nextRun.text}${nextRun.duration ? ` (${nextRun.duration} min)` : ''}</p>
+                   </div>`;
+
             return `
-                <div class="${colors.bg} backdrop-blur rounded-xl p-5 border ${colors.border} ${colors.hover} transition-all">
+                <div class="${colors.bg} backdrop-blur rounded-xl p-5 border ${colors.border} transition-all">
                     <div class="flex items-start justify-between mb-3">
                         <div>
                             <p class="text-sm ${colors.label} font-semibold">ZONE ${zone.id}</p>
@@ -308,59 +396,155 @@
                     </div>
                     <div class="space-y-2">
                         ${statusContent}
+                        ${nextRunContent}
                     </div>
                 </div>
             `;
         }
 
-        // Load and display zones
-        async function loadZones() {
+        // Stop all zones
+        async function stopAllZones() {
             try {
-                const zones = await API.getZones();
-                const container = document.getElementById('zones-container');
-                container.innerHTML = zones.map(zone => createZoneCard(zone)).join('');
+                await API.zoneOff();
+                await loadZones();
             } catch (error) {
-                console.error('Error loading zones:', error);
+                console.error('Error stopping zones:', error);
             }
         }
 
-        // Load system status
-        async function loadSystemStatus() {
+        // Manual control modal
+        let allZones = [];
+
+        function openManualControl() {
+            const modal = document.getElementById('manual-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            populateManualZones();
+        }
+
+        function closeManualControl() {
+            const modal = document.getElementById('manual-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function populateManualZones() {
+            const container = document.getElementById('manual-zones');
+            const enabledZones = allZones.filter(z => z.enabled);
+
+            if (enabledZones.length === 0) {
+                container.innerHTML = '<p class="text-purple-300 text-center py-4">No zones enabled</p>';
+                return;
+            }
+
+            container.innerHTML = enabledZones.map(zone => {
+                const isActive = activeZone === zone.id;
+                const statusText = isActive ? `<span class="text-green-400">(Running - ${remainingMins} min left)</span>` : '';
+
+                return `
+                    <div class="flex items-center justify-between bg-white/5 rounded-lg p-3 border border-white/10">
+                        <div>
+                            <span class="text-white font-semibold">Zone ${zone.id}</span>
+                            <span class="text-purple-300 ml-2">${zone.name}</span>
+                            ${statusText}
+                        </div>
+                        ${isActive
+                            ? `<button onclick="manualStop(${zone.id})" class="bg-red-500/30 hover:bg-red-500/40 border border-red-500/50 text-red-100 px-4 py-1 rounded-lg text-sm font-semibold">Stop</button>`
+                            : `<button onclick="manualStart(${zone.id})" class="bg-green-500/30 hover:bg-green-500/40 border border-green-500/50 text-green-100 px-4 py-1 rounded-lg text-sm font-semibold">Start</button>`
+                        }
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function manualStart(zoneId) {
+            const duration = document.getElementById('manual-duration').value;
             try {
-                const status = await API.getSystemStatus();
-                const statusEl = document.getElementById('system-status');
-                if (status.online) {
-                    statusEl.innerHTML = `
-                        <div class="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-                        <span class="text-green-200 font-medium">System Online</span>
+                await API.zoneOn(zoneId, duration);
+                await loadZones();
+                populateManualZones();
+            } catch (error) {
+                console.error('Error starting zone:', error);
+            }
+        }
+
+        async function manualStop(zoneId) {
+            try {
+                await API.zoneOff(zoneId);
+                await loadZones();
+                populateManualZones();
+            } catch (error) {
+                console.error('Error stopping zone:', error);
+            }
+        }
+
+        // Load schedules
+        async function loadSchedules() {
+            try {
+                const data = await API.getSchedules();
+                schedules = data.schedules || [];
+            } catch (error) {
+                console.error('Error loading schedules:', error);
+                schedules = [];
+            }
+        }
+
+        // Load and display zones
+        async function loadZones() {
+            try {
+                // Load schedules and zone status
+                await loadSchedules();
+
+                // Get active zone status
+                try {
+                    const status = await API.getZoneStatus();
+                    activeZone = status.activeZone || 0;
+                    remainingMins = status.remainingMins || 0;
+                } catch (e) {
+                    activeZone = 0;
+                    remainingMins = 0;
+                }
+
+                const data = await API.getZones();
+                allZones = data.zones || [];
+                const container = document.getElementById('zones-container');
+
+                // Filter to only show enabled zones
+                const enabledZones = allZones.filter(zone => zone.enabled);
+
+                if (enabledZones.length === 0) {
+                    container.innerHTML = `
+                        <div class="col-span-full text-center py-8">
+                            <p class="text-purple-300">No zones enabled.</p>
+                            <a href="/zones.shtml" class="text-purple-400 hover:text-purple-200 underline">Configure zones</a>
+                        </div>
                     `;
                 } else {
-                    statusEl.className = 'flex items-center gap-2 bg-red-500/20 border border-red-500/50 rounded-full px-4 py-2';
-                    statusEl.innerHTML = `
-                        <div class="w-3 h-3 bg-red-400 rounded-full"></div>
-                        <span class="text-red-200 font-medium">System Offline</span>
-                    `;
+                    container.innerHTML = enabledZones.map(zone => createZoneCard(zone)).join('');
                 }
             } catch (error) {
-                console.error('Error loading system status:', error);
+                console.error('Error loading zones:', error);
+                document.getElementById('zones-container').innerHTML = `
+                    <div class="col-span-full text-center py-8">
+                        <p class="text-red-300">Failed to load zones</p>
+                    </div>
+                `;
             }
         }
 
         // Initialize dashboard
         async function initDashboard() {
             updateTime();
-            await loadSystemStatus();
             await loadSensorData();
             await loadZones();
 
             // Update time every minute
             setInterval(updateTime, 60000);
 
-            // Refresh data every 5 seconds (adjust as needed)
+            // Refresh data every 5 seconds
             setInterval(async () => {
                 await loadSensorData();
                 await loadZones();
-                await loadSystemStatus();
             }, 5000);
         }
 
