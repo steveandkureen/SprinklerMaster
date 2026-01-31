@@ -81,6 +81,7 @@ target_link_libraries(BasicRTOS PRIVATE
         pico_cyw43_arch_lwip_sys_freertos
         pico_lwip_http
         pico_lwip_mdns
+        pico_lwip_sntp
         pico_httpd_content
         FreeRTOS-Kernel
         FreeRTOS-Kernel-Heap4)

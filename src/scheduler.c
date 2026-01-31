@@ -180,7 +180,7 @@ void scheduler_task(void *pvParameters) {
 }
 
 void scheduler_init(void) {
-    xTaskCreate(scheduler_task, "Scheduler", 512, NULL, 2, &scheduler_task_handle);
+    xTaskCreate(scheduler_task, "Scheduler", 1024, NULL, 2, &scheduler_task_handle);
 }
 
 void scheduler_manual_run(uint8_t zone_id, uint16_t duration_mins) {
@@ -199,26 +199,5 @@ void scheduler_stop_current(void) {
 }
 
 scheduler_status_t scheduler_get_status(void) {
-    // Update remaining time before returning
-    if (current_status.active_zone > 0) {
-        uint32_t now_ms = to_ms_since_boot(get_absolute_time());
-        uint32_t elapsed_ms = now_ms - current_status.run_start_ms;
-        uint32_t duration_ms = (uint32_t)current_status.remaining_mins * 60 * 1000;
-
-        // Recalculate from original duration
-        uint32_t original_duration_ms = duration_ms + elapsed_ms -
-            ((current_status.remaining_mins * 60 * 1000) - (duration_ms - elapsed_ms));
-
-        // Simpler: just use the elapsed time from start
-        elapsed_ms = now_ms - current_status.run_start_ms;
-        // We need the original duration, which we can estimate
-        // Actually let's just compute remaining from elapsed
-        if (elapsed_ms < duration_ms) {
-            current_status.remaining_mins = (duration_ms - elapsed_ms + 59999) / 60000;
-        } else {
-            current_status.remaining_mins = 0;
-        }
-    }
-
     return current_status;
 }

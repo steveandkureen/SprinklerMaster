@@ -7,6 +7,7 @@
 #include "zones.h"
 #include "scheduler.h"
 #include "lwip/apps/httpd.h"
+#include "lwip/apps/sntp.h"
 #include "lwip/ip4_addr.h"
 #include "pico/cyw43_arch.h"
 #include "pico/flash.h"
@@ -19,8 +20,27 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 
 char *ip4_addr = NULL;
+
+// Initialize NTP time synchronization
+static void init_ntp(void) {
+    printf("NTP: Initializing...\n");
+
+    // Set timezone (adjust for your location)
+    // UTC offset in seconds: e.g., PST = -8 hours = -28800
+    // For Central Time: -6 hours = -21600 (CST) or -5 hours = -18000 (CDT)
+    setenv("TZ", "CST6CDT,M3.2.0,M11.1.0", 1);  // US Central with DST
+    tzset();
+
+    sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    sntp_setservername(0, "pool.ntp.org");
+    sntp_setservername(1, "time.google.com");
+    sntp_init();
+
+    printf("NTP: Started, waiting for sync...\n");
+}
 
 // Helper: URL decode a string in place
 static void url_decode(char *str) {
@@ -99,6 +119,9 @@ bool init_wifi(void *pvParameters) {
     // Display IP address on LCD
     snprintf(ip_str, sizeof(ip_str), "%s", ip4_addr);
     lcd_set_text(1, 0, ip4_addr);
+
+    // Initialize NTP time synchronization
+    init_ntp();
   }
   return true;
 }

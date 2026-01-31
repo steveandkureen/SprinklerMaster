@@ -16,6 +16,7 @@
 #define MEMP_NUM_TCP_SEG 32
 #define MEMP_NUM_ARP_QUEUE 10
 #define PBUF_POOL_SIZE 24
+#define MEMP_NUM_SYS_TIMEOUT 16
 
 // Protocol settings
 #define LWIP_ARP 1
@@ -105,5 +106,9 @@
 #define LWIP_HTTPD_SSI_EXTENSIONS ".shtml", ".shtm", ".ssi", ".xml", ".json", ".html"
 #define LWIP_HTTPD_MAX_TAG_INSERT_LEN 2048  // Increased for schedule JSON output
 #define HTTPD_FSDATA_FILE "pico_fsdata.inc"
+
+// SNTP (NTP time sync) settings
+#define SNTP_SERVER_DNS 1
+#define SNTP_MAX_SERVERS 2
 
 #endif

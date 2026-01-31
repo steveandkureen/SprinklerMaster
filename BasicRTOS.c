@@ -84,7 +84,7 @@ int main() {
   lcd_set_text(0, 0, "Starting up....");
   //  Create the LED task
   //  xTaskCreate(TurnOnLed, "TurnOnLed", 256, NULL, 4, NULL);
-  xTaskCreate(WebServer, "WebServer", 1024, NULL, 1, NULL);
+  xTaskCreate(WebServer, "WebServer", 2048, NULL, 1, NULL);
   xTaskCreate(SensorTask, "SensorTask", 512, NULL, 0, NULL);
 
   // Initialize scheduler task (handles automatic zone triggering)

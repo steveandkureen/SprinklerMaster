@@ -1,5 +1,6 @@
 #include "dht22.h"
 #include "hardware/gpio.h"
+#include "hardware/sync.h"
 #include "pico/stdlib.h"
 #include "pico/time.h"
 #include <stdio.h>
@@ -30,6 +31,9 @@ static int wait_for_level(bool level, uint32_t timeout_us) {
 
 bool dht_read(void) {
     uint8_t data[5] = {0};
+    bool success = true;
+    int error_bit = -1;
+    const char *error_msg = NULL;
 
     // Send start signal: pull low for 18ms, then release
     gpio_set_dir(DHT_PIN, GPIO_OUT);
@@ -41,41 +45,60 @@ bool dht_read(void) {
     // Switch to input mode to read response
     gpio_set_dir(DHT_PIN, GPIO_IN);
 
-    // DHT11 pulls low for 80us, then high for 80us as response
+    // Disable interrupts for timing-critical section
+    uint32_t irq_status = save_and_disable_interrupts();
+
+    // DHT pulls low for 80us, then high for 80us as response
     if (wait_for_level(false, 100) < 0) {
-        printf("DHT: No response (low)\n");
-        return false;
-    }
-    if (wait_for_level(true, 100) < 0) {
-        printf("DHT: No response (high)\n");
-        return false;
-    }
-    if (wait_for_level(false, 100) < 0) {
-        printf("DHT: No data start\n");
-        return false;
+        error_msg = "No response (low)";
+        success = false;
+    } else if (wait_for_level(true, 100) < 0) {
+        error_msg = "No response (high)";
+        success = false;
+    } else if (wait_for_level(false, 100) < 0) {
+        error_msg = "No data start";
+        success = false;
     }
 
     // Read 40 bits (5 bytes)
-    for (int i = 0; i < 40; i++) {
-        // Wait for high level (start of bit)
-        if (wait_for_level(true, 100) < 0) {
-            printf("DHT: Bit %d start timeout\n", i);
-            return false;
-        }
+    if (success) {
+        for (int i = 0; i < 40; i++) {
+            // Wait for high level (start of bit)
+            if (wait_for_level(true, 100) < 0) {
+                error_msg = "Bit start timeout";
+                error_bit = i;
+                success = false;
+                break;
+            }
 
-        // Measure how long the pin stays high
-        // ~26-28us = 0, ~70us = 1
-        int high_time = wait_for_level(false, 100);
-        if (high_time < 0) {
-            printf("DHT: Bit %d end timeout\n", i);
-            return false;
-        }
+            // Measure how long the pin stays high
+            // ~26-28us = 0, ~70us = 1
+            int high_time = wait_for_level(false, 100);
+            if (high_time < 0) {
+                error_msg = "Bit end timeout";
+                error_bit = i;
+                success = false;
+                break;
+            }
 
-        // Shift in the bit (high_time > 50us means '1')
-        data[i / 8] <<= 1;
-        if (high_time > 50) {
-            data[i / 8] |= 1;
+            // Shift in the bit (high_time > 50us means '1')
+            data[i / 8] <<= 1;
+            if (high_time > 50) {
+                data[i / 8] |= 1;
+            }
         }
+    }
+
+    // Re-enable interrupts
+    restore_interrupts(irq_status);
+
+    if (!success) {
+        if (error_bit >= 0) {
+            printf("DHT: %s (bit %d)\n", error_msg, error_bit);
+        } else {
+            printf("DHT: %s\n", error_msg);
+        }
+        return false;
     }
 
     // Verify checksum
