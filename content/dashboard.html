@@ -22,6 +22,7 @@
                         <span class="text-green-200 font-medium">System Online</span>
                     </div>
                     <p id="current-time" class="text-purple-300 text-sm"></p>
+                    <p id="server-time" class="text-purple-400 text-xs"></p>
                 </div>
             </div>
         </div>
@@ -160,6 +161,11 @@
 
             zoneOff: async (zoneId) => {
                 const response = await fetch(`${API_BASE_URL}/zones/off?id=${zoneId}`);
+                return await response.json();
+            },
+
+            getServerTime: async () => {
+                const response = await fetch(`${API_BASE_URL}/time`);
                 return await response.json();
             }
         };
@@ -306,7 +312,7 @@
             return { text: next.text, duration: next.schedule.duration };
         }
 
-        // Update current time
+        // Update current time (browser time)
         function updateTime() {
             const now = new Date();
             const options = {
@@ -318,6 +324,16 @@
                 minute: '2-digit'
             };
             document.getElementById('current-time').textContent = now.toLocaleDateString('en-US', options);
+        }
+
+        // Update server time (from NTP)
+        async function updateServerTime() {
+            try {
+                const data = await API.getServerTime();
+                document.getElementById('server-time').textContent = `Server: ${data.time}`;
+            } catch (error) {
+                document.getElementById('server-time').textContent = 'Server: --';
+            }
         }
 
         // Load and display sensor data
@@ -533,19 +549,31 @@
         }
 
         // Initialize dashboard
-        async function initDashboard() {
-            updateTime();
-            await loadSensorData();
-            await loadZones();
+        let isRefreshing = false;
 
-            // Update time every minute
-            setInterval(updateTime, 60000);
-
-            // Refresh data every 5 seconds
-            setInterval(async () => {
+        async function refreshData() {
+            if (isRefreshing) return; // Don't stack requests
+            isRefreshing = true;
+            try {
+                await updateServerTime();
                 await loadSensorData();
                 await loadZones();
-            }, 5000);
+            } catch (error) {
+                console.error('Refresh error:', error);
+            } finally {
+                isRefreshing = false;
+            }
+        }
+
+        async function initDashboard() {
+            updateTime();
+            await refreshData();
+
+            // Update browser time every minute
+            setInterval(updateTime, 60000);
+
+            // Refresh data every 30 seconds (don't overwhelm the Pico)
+            setInterval(refreshData, 30000);
         }
 
         // Start dashboard when page loads

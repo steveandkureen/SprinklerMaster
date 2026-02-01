@@ -6,12 +6,13 @@
 
 // Configuration constants
 #define CONFIG_MAGIC 0xCAFE
-#define CONFIG_VERSION 2  // v2: Added last_run_day/year to schedules
+#define CONFIG_VERSION 3  // v3: Added timezone
 #define MAX_ZONES 8
 #define MAX_SCHEDULES 20
 #define MAX_SSID_LEN 32
 #define MAX_PASSWORD_LEN 64
 #define MAX_ZONE_NAME_LEN 31
+#define MAX_TIMEZONE_LEN 63
 
 // Zone GPIO pin mapping (from Plan.md)
 #define ZONE_1_PIN 10
@@ -51,7 +52,7 @@ typedef struct {
     uint16_t last_run_year; // Year of last run (e.g., 2024), 0 = never
 } schedule_config_t;
 
-// Main configuration structure (~800 bytes)
+// Main configuration structure (~900 bytes)
 typedef struct {
     uint16_t magic;                         // CONFIG_MAGIC for validity
     uint16_t version;                       // Config format version
@@ -60,10 +61,13 @@ typedef struct {
     char ssid[MAX_SSID_LEN + 1];            // 33 bytes
     char password[MAX_PASSWORD_LEN + 1];    // 65 bytes
 
+    // Timezone (64 bytes) - POSIX TZ format, e.g., "MST7" or "EST5EDT,M3.2.0,M11.1.0"
+    char timezone[MAX_TIMEZONE_LEN + 1];    // 64 bytes
+
     // Zone configurations (8 * 36 = 288 bytes)
     zone_config_t zones[MAX_ZONES];
 
-    // Schedule configurations (20 * 8 = 160 bytes)
+    // Schedule configurations (20 * 12 = 240 bytes)
     schedule_config_t schedules[MAX_SCHEDULES];
 
     uint32_t crc32;                         // Data integrity check
@@ -83,6 +87,10 @@ const sprinkler_config_t* config_get(void);
 void config_set_wifi(const char* ssid, const char* password);
 const char* config_get_ssid(void);
 const char* config_get_password(void);
+
+// Timezone configuration (POSIX TZ format)
+void config_set_timezone(const char* tz);
+const char* config_get_timezone(void);
 
 // Zone configuration
 void config_set_zone(uint8_t zone_id, const char* name, uint8_t gpio_pin, bool enabled);

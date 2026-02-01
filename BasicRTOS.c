@@ -6,8 +6,8 @@
 #include "src/config_flash.h"
 #include "src/dht22.h"
 #include "src/network.h"
-#include "src/zones.h"
 #include "src/scheduler.h"
+#include "src/zones.h"
 #include "task.h"
 #include <pico/types.h>
 #include <stdio.h>
@@ -23,34 +23,14 @@ void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName) {
   panic("Stack overflow");
 }
 
-// FreeRTOS task to turn on LED and print messages
-void TurnOnLed(void *pvParameters) {
-  // Turn on the Pico W LED
+// FreeRTOS task to blink LED
+void LedTask(void *pvParameters) {
   bool status = true;
-
   while (true) {
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, status);
-    // lcd_set_text(0, 0, "Running....");
-    vTaskDelay(pdMS_TO_TICKS(500));
-    status = !status;
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, status);
-    vTaskDelay(pdMS_TO_TICKS(200));
-    status = !status;
     cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, status);
     vTaskDelay(pdMS_TO_TICKS(1000));
     status = !status;
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, status);
-    vTaskDelay(pdMS_TO_TICKS(3000));
-    status = !status;
   }
-}
-
-void WebServer(void *pvParameters) {
-  if (!init_wifi(pvParameters)) {
-    printf("Wifi init failed.");
-  }
-
-  run_server(pvParameters);
 }
 
 // Sensor task - reads DHT11 every 3 seconds
@@ -68,11 +48,29 @@ void SensorTask(void *pvParameters) {
   }
 }
 
+// Network task - initializes WiFi, mDNS, NTP, then starts httpd
+void NetworkTask(void *pvParameters) {
+  if (!network_init()) {
+    printf("ERROR: Network initialization failed!\n");
+    lcd_set_text(0, 0, "Network Failed! ");
+  }
+
+  // Start HTTP server
+  httpd_task(pvParameters);
+}
+
 int main() {
   stdio_init_all();
 
   // Wait for USB serial to connect (so we can see boot messages)
   sleep_ms(2000);
+
+  printf("\n=== SprinklerMaster Starting ===\n");
+
+  // Initialize multi-core flash safety (must be before FreeRTOS tasks)
+  if (flash_safe_execute_core_init()) {
+    printf("Warning: Multi-core flash init returned non-zero\n");
+  }
 
   // Initialize configuration from flash storage
   config_init();
@@ -80,18 +78,21 @@ int main() {
   // Initialize zone GPIO pins
   zones_init();
 
-  lcd_init(); // init the lcd
+  // Initialize LCD
+  lcd_init();
   lcd_set_text(0, 0, "Starting up....");
-  //  Create the LED task
-  //  xTaskCreate(TurnOnLed, "TurnOnLed", 256, NULL, 4, NULL);
-  xTaskCreate(WebServer, "WebServer", 2048, NULL, 1, NULL);
-  xTaskCreate(SensorTask, "SensorTask", 512, NULL, 0, NULL);
+
+  printf("Creating FreeRTOS tasks...\n");
+
+  // Create tasks
+  xTaskCreate(NetworkTask, "Network", 2048, NULL, 1, NULL);
+  xTaskCreate(SensorTask, "Sensor", 512, NULL, 0, NULL);
+  xTaskCreate(LedTask, "LED", 256, NULL, 0, NULL);
 
   // Initialize scheduler task (handles automatic zone triggering)
   scheduler_init();
 
-  // lcd_set_text(0, 0, "Tasks Created....");
-  //  Start the FreeRTOS scheduler
+  printf("Starting FreeRTOS scheduler...\n");
   vTaskStartScheduler();
 
   // Should never reach here

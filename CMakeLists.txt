@@ -51,6 +51,7 @@ pico_set_lwip_httpd_content(pico_httpd_content INTERFACE
       ${CMAKE_CURRENT_LIST_DIR}/content/api/zone_status.json
       ${CMAKE_CURRENT_LIST_DIR}/content/api/success.json
       ${CMAKE_CURRENT_LIST_DIR}/content/api/error.json
+      ${CMAKE_CURRENT_LIST_DIR}/content/api/time.json
       )
 
 # Add executable. Default name is the project name, version 0.1

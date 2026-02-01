@@ -108,7 +108,16 @@
 #define HTTPD_FSDATA_FILE "pico_fsdata.inc"
 
 // SNTP (NTP time sync) settings
+#define LWIP_SNTP 1
 #define SNTP_SERVER_DNS 1
 #define SNTP_MAX_SERVERS 2
+#define SNTP_UPDATE_DELAY 3600000  // Update every hour (in ms)
+
+// Set system time when NTP response is received
+#include <sys/time.h>
+#define SNTP_SET_SYSTEM_TIME(sec) do { \
+    struct timeval tv = { .tv_sec = sec, .tv_usec = 0 }; \
+    settimeofday(&tv, NULL); \
+} while(0)
 
 #endif

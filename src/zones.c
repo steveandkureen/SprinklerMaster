@@ -27,31 +27,22 @@ void zones_init(void) {
 // Turn on a zone (turns off any other active zone first)
 bool zone_on(uint8_t zone_id) {
     if (zone_id < 1 || zone_id > MAX_ZONES) {
-        printf("Zones: Invalid zone_id %d\n", zone_id);
         return false;
     }
 
     const zone_config_t *zone = config_get_zone(zone_id);
-    if (!zone) {
-        printf("Zones: Zone %d config not found\n", zone_id);
-        return false;
-    }
-
-    if (!zone->enabled) {
-        printf("Zones: Zone %d is disabled\n", zone_id);
+    if (!zone || !zone->enabled) {
         return false;
     }
 
     // Safety: Turn off any currently active zone first
     if (active_zone != 0 && active_zone != zone_id) {
-        printf("Zones: Turning off zone %d before activating zone %d\n", active_zone, zone_id);
         zone_off(active_zone);
     }
 
     // Turn on the requested zone
     gpio_put(zone->gpio_pin, 1);
     active_zone = zone_id;
-    printf("Zones: Zone %d ON (GPIO %d)\n", zone_id, zone->gpio_pin);
 
     return true;
 }
@@ -72,8 +63,6 @@ void zone_off(uint8_t zone_id) {
     if (active_zone == zone_id) {
         active_zone = 0;
     }
-
-    printf("Zones: Zone %d OFF (GPIO %d)\n", zone_id, zone->gpio_pin);
 }
 
 // Turn off all zones

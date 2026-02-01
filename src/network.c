@@ -24,24 +24,6 @@
 
 char *ip4_addr = NULL;
 
-// Initialize NTP time synchronization
-static void init_ntp(void) {
-    printf("NTP: Initializing...\n");
-
-    // Set timezone (adjust for your location)
-    // UTC offset in seconds: e.g., PST = -8 hours = -28800
-    // For Central Time: -6 hours = -21600 (CST) or -5 hours = -18000 (CDT)
-    setenv("TZ", "CST6CDT,M3.2.0,M11.1.0", 1);  // US Central with DST
-    tzset();
-
-    sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    sntp_setservername(0, "pool.ntp.org");
-    sntp_setservername(1, "time.google.com");
-    sntp_init();
-
-    printf("NTP: Started, waiting for sync...\n");
-}
-
 // Helper: URL decode a string in place
 static void url_decode(char *str) {
   char *src = str;
@@ -71,58 +53,65 @@ static const char *find_param(int numParams, char *params[], char *values[], con
   return NULL;
 }
 
-bool init_wifi(void *pvParameters) {
-  // Now continue with the actual application
+// Initialize all network services (called before FreeRTOS starts)
+bool network_init(void) {
   char ip_str[16];
   wifi_config_t wifi_config;
 
-  if (flash_safe_execute_core_init()) {
-    printf("Multi-core init failed\n");
-  }
-  // Initialise the Wi-Fi chip
+  // Initialize the Wi-Fi chip
+  printf("Network: Initializing WiFi chip...\n");
+  lcd_set_text(1, 0, "Init WiFi chip ");
   if (cyw43_arch_init()) {
-    printf("Wi-Fi init failed\n");
+    printf("Network: Wi-Fi chip init failed\n");
+    lcd_set_text(1, 0, "WiFi Failed    ");
+    return false;
   }
 
-  // Initialize flash storage
-  lcd_set_text(1, 0, "Loading config..");
-
-  // First boot - load WiFi credentials from wifi_credentials.h
+  // Load WiFi credentials
   strncpy(wifi_config.ssid, WIFI_SSID, MAX_SSID_LENGTH);
   wifi_config.ssid[MAX_SSID_LENGTH] = '\0';
   strncpy(wifi_config.password, WIFI_PASSWORD, MAX_PASSWORD_LENGTH);
   wifi_config.password[MAX_PASSWORD_LENGTH] = '\0';
 
-  printf("WiFi config: SSID=%s\n", wifi_config.ssid);
-
-  // Initialise the Wi-Fi chip
-  lcd_set_text(1, 0, "Init WiFi chip ");
-
-  // Enable wifi station
-  cyw43_arch_enable_sta_mode();
-
-  printf("Connecting to Wi-Fi...\n");
+  printf("Network: Connecting to %s...\n", wifi_config.ssid);
   lcd_set_text(1, 0, "Connecting WiFi");
 
+  // Enable wifi station mode
+  cyw43_arch_enable_sta_mode();
+
+  // Connect to WiFi
   if (cyw43_arch_wifi_connect_timeout_ms(wifi_config.ssid, wifi_config.password,
                                          CYW43_AUTH_WPA2_AES_PSK, 30000)) {
-    printf("failed to connect.\n");
+    printf("Network: Failed to connect to WiFi\n");
     lcd_set_text(1, 0, "WiFi Failed    ");
-    vTaskDelete(NULL);
-  } else {
-    printf("Connected.\n");
-    vTaskDelay(pdMS_TO_TICKS(1000));
-    // Read the ip address in a human readable way
-    ip4_addr = ip4addr_ntoa(netif_default ? &netif_default->ip_addr : NULL);
-    printf("IP address %s\n", ip4_addr);
-
-    // Display IP address on LCD
-    snprintf(ip_str, sizeof(ip_str), "%s", ip4_addr);
-    lcd_set_text(1, 0, ip4_addr);
-
-    // Initialize NTP time synchronization
-    init_ntp();
+    return false;
   }
+
+  printf("Network: Connected!\n");
+  vTaskDelay(pdMS_TO_TICKS(1000));
+
+  // Get IP address
+  ip4_addr = ip4addr_ntoa(netif_default ? &netif_default->ip_addr : NULL);
+  printf("Network: IP address %s\n", ip4_addr);
+  snprintf(ip_str, sizeof(ip_str), "%s", ip4_addr);
+  lcd_set_text(1, 0, ip4_addr);
+
+  // mDNS disabled - causes httpd to stop working
+  // TODO: Investigate lwIP mDNS + httpd conflict
+
+  // Initialize NTP
+  printf("Network: Starting NTP...\n");
+  const char* tz = config_get_timezone();
+  printf("Network: Timezone = %s\n", tz);
+  setenv("TZ", tz, 1);
+  tzset();
+  sntp_setoperatingmode(SNTP_OPMODE_POLL);
+  sntp_setservername(0, "pool.ntp.org");
+  sntp_setservername(1, "time.google.com");
+  sntp_init();
+  printf("Network: NTP started\n");
+
+  printf("Network: Initialization complete\n");
   return true;
 }
 
@@ -302,6 +291,11 @@ static const char *cgi_handler_zone_status(int index, int numParams, char *param
   return "/api/zone_status.json";
 }
 
+static const char *cgi_handler_time(int index, int numParams, char *params[],
+                                    char *value[]) {
+  return "/api/time.json";
+}
+
 static tCGI cgi_handlers[] = {{"/", cgi_handler_default},
                               {"/index.html", cgi_handler_default},
                               {"/api/sensors", cgi_handler_sensors},
@@ -312,7 +306,8 @@ static tCGI cgi_handlers[] = {{"/", cgi_handler_default},
                               {"/api/zones/status", cgi_handler_zone_status},
                               {"/api/schedules", cgi_handler_schedules},
                               {"/api/schedules/save", cgi_handler_schedules_save},
-                              {"/api/schedules/delete", cgi_handler_schedule_delete}};
+                              {"/api/schedules/delete", cgi_handler_schedule_delete},
+                              {"/api/time", cgi_handler_time}};
 
 // SSI tags - indices: 0=ip4_addr, 1=temp, 2=hum, 3=upd, 4-27=zone data, 28=scheds, 29=activez
 static const char *ssi_tags[] = {
@@ -331,7 +326,9 @@ static const char *ssi_tags[] = {
     // Active zone
     "activez",
     // Remaining minutes for active zone
-    "remain"
+    "remain",
+    // Server time (from NTP)
+    "stime"
 };
 
 // SSI handler
@@ -398,6 +395,19 @@ static u16_t ssi_handler(int index, char *insert, int insertlen) {
     scheduler_status_t status = scheduler_get_status();
     printed = snprintf(insert, insertlen, "%d", status.remaining_mins);
   } break;
+  case 31: // stime - server time from NTP (using thread-safe localtime_r)
+  {
+    time_t now = time(NULL);
+    struct tm tm_buf;
+    struct tm *tm_info = localtime_r(&now, &tm_buf);
+    if (tm_info && now > 1000000000) {  // Valid time (after year 2001)
+      printed = snprintf(insert, insertlen, "%04d-%02d-%02d %02d:%02d:%02d",
+                         tm_info->tm_year + 1900, tm_info->tm_mon + 1, tm_info->tm_mday,
+                         tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec);
+    } else {
+      printed = snprintf(insert, insertlen, "Syncing...");
+    }
+  } break;
   default:
     // Zone data: indices 4-27 (8 zones * 3 fields each)
     if (index >= 4 && index < 28) {
@@ -424,16 +434,19 @@ static u16_t ssi_handler(int index, char *insert, int insertlen) {
   return (u16_t)printed;
 }
 
-bool run_server(void *pvParameters) {
-  cyw43_arch_lwip_begin();
+// HTTP server task - runs after network_init()
+void httpd_task(void *pvParameters) {
+  printf("HTTPD: Starting web server...\n");
+
+  // Initialize httpd - no explicit locking needed, lwIP TCPIP thread handles this
   httpd_init();
   http_set_cgi_handlers(cgi_handlers, LWIP_ARRAYSIZE(cgi_handlers));
   http_set_ssi_handler(ssi_handler, ssi_tags, LWIP_ARRAYSIZE(ssi_tags));
-  cyw43_arch_lwip_end();
 
+  printf("HTTPD: Web server running on port 80\n");
+
+  // Keep task alive
   while (true) {
     vTaskDelay(pdMS_TO_TICKS(1000));
   }
-
-  return true;
 }

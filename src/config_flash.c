@@ -80,6 +80,10 @@ static void config_set_defaults(void) {
     g_config.ssid[0] = '\0';
     g_config.password[0] = '\0';
 
+    // Default timezone (Arizona MST, no DST)
+    strncpy(g_config.timezone, "MST7", MAX_TIMEZONE_LEN);
+    g_config.timezone[MAX_TIMEZONE_LEN] = '\0';
+
     // Default zone configuration
     for (int i = 0; i < MAX_ZONES; i++) {
         strncpy(g_config.zones[i].name, default_zone_names[i], MAX_ZONE_NAME_LEN);
@@ -232,6 +236,22 @@ const char* config_get_ssid(void) {
 
 const char* config_get_password(void) {
     return g_config.password;
+}
+
+// Set timezone (POSIX TZ format)
+void config_set_timezone(const char* tz) {
+    if (tz) {
+        strncpy(g_config.timezone, tz, MAX_TIMEZONE_LEN);
+        g_config.timezone[MAX_TIMEZONE_LEN] = '\0';
+    }
+}
+
+const char* config_get_timezone(void) {
+    // Return default if empty
+    if (g_config.timezone[0] == '\0') {
+        return "MST7";
+    }
+    return g_config.timezone;
 }
 
 // Set zone configuration

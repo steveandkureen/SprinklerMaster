@@ -1,5 +1,12 @@
+#ifndef NETWORK_H
+#define NETWORK_H
 
-#include <pico/types.h>
+#include <stdbool.h>
 
-bool init_wifi(void *pvParameters);
-bool run_server(void *pvParameters);
+// Initialize network (WiFi, mDNS, NTP) - call before FreeRTOS starts
+bool network_init(void);
+
+// Start the HTTP server task
+void httpd_task(void *pvParameters);
+
+#endif // NETWORK_H

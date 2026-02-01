@@ -8,8 +8,8 @@
 typedef struct {
     uint8_t active_zone;        // Currently running zone (0 = none)
     uint8_t active_schedule_id; // Schedule that triggered it (0 = manual)
-    uint16_t remaining_mins;    // Minutes remaining
-    uint32_t run_start_ms;      // When the current run started
+    uint16_t remaining_mins;    // Minutes remaining (for display)
+    uint32_t run_end_ms;        // When the current run should end
 } scheduler_status_t;
 
 // Initialize and start the scheduler task
