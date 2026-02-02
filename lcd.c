@@ -143,7 +143,6 @@ void lcd_clear(void) {
 
 // Set text at specified row and column
 void lcd_set_text(uint8_t row, uint8_t col, const char *text) {
-  printf("Displaying: $s", text);
   lcd_set_cursor(row, col);
 
   while (*text) {

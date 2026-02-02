@@ -1,6 +1,7 @@
 #include "scheduler.h"
 #include "FreeRTOS.h"
 #include "config_flash.h"
+#include "fault_tolerance.h"
 #include "pico/time.h"
 #include "task.h"
 #include "zones.h"
@@ -181,9 +182,26 @@ static void check_schedules(void) {
 void scheduler_task(void *pvParameters) {
   printf("Scheduler task started\n");
 
-  // Wait for NTP to sync (valid time > year 2001)
+  // Wait for NTP to sync with timeout
   printf("Scheduler: Waiting for NTP sync...\n");
-  while (time(NULL) < 1000000000) {
+  uint32_t ntp_wait_start = to_ms_since_boot(get_absolute_time());
+  bool ntp_synced = false;
+
+  while (!ntp_synced) {
+    task_heartbeat(TASK_ID_SCHEDULER);
+
+    if (time(NULL) >= 1000000000) {
+      ntp_synced = true;
+      break;
+    }
+
+    uint32_t elapsed = to_ms_since_boot(get_absolute_time()) - ntp_wait_start;
+    if (elapsed > NTP_SYNC_TIMEOUT_MS) {
+      printf("Scheduler: NTP sync timeout after %lu ms\n", elapsed);
+      printf("Scheduler: Continuing without schedules until NTP syncs\n");
+      break;
+    }
+
     vTaskDelay(pdMS_TO_TICKS(1000));
   }
 
@@ -191,17 +209,36 @@ void scheduler_task(void *pvParameters) {
   const char* tz = config_get_timezone();
   setenv("TZ", tz, 1);
   tzset();
-  printf("Scheduler: NTP synced, time is valid\n");
+
+  if (ntp_synced) {
+    printf("Scheduler: NTP synced, time is valid\n");
+  }
+
+  // Use shorter delays with counter to maintain heartbeat while still
+  // only checking schedules every SCHEDULER_CHECK_INTERVAL_SEC
+  const int heartbeat_interval_sec = 5;
+  const int checks_per_interval = SCHEDULER_CHECK_INTERVAL_SEC / heartbeat_interval_sec;
+  int check_counter = checks_per_interval;  // Run immediately on first iteration
 
   while (true) {
-    // Check if current run is complete
-    check_run_complete();
+    task_heartbeat(TASK_ID_SCHEDULER);
 
-    // Check schedules
-    check_schedules();
+    check_counter++;
+    if (check_counter >= checks_per_interval) {
+      check_counter = 0;
 
-    // Wait before next check
-    vTaskDelay(pdMS_TO_TICKS(SCHEDULER_CHECK_INTERVAL_SEC * 1000));
+      // Only run schedules if NTP is synced
+      if (time(NULL) >= 1000000000) {
+        // Check if current run is complete
+        check_run_complete();
+
+        // Check schedules
+        check_schedules();
+      }
+    }
+
+    // Short delay to maintain heartbeat
+    vTaskDelay(pdMS_TO_TICKS(heartbeat_interval_sec * 1000));
   }
 }
 

@@ -1,0 +1,276 @@
+#include "lcd_display.h"
+#include "FreeRTOS.h"
+#include "config_flash.h"
+#include "fault_tolerance.h"
+#include "lcd.h"
+#include "scheduler.h"
+#include "semphr.h"
+#include "task.h"
+#include "pico/time.h"
+#include <stdio.h>
+#include <string.h>
+#include <time.h>
+
+// Update interval in milliseconds
+#define UPDATE_INTERVAL_MS 1000
+
+// How long to show IP address after connection (1 minute)
+#define IP_DISPLAY_DURATION_MS 60000
+
+// LCD width
+#define LCD_WIDTH 16
+
+// Shared state protected by mutex
+static SemaphoreHandle_t lcd_mutex = NULL;
+static char startup_status[LCD_WIDTH + 1] = "";
+static char ip_address[LCD_WIDTH + 1] = "";
+static uint32_t ip_set_time_ms = 0;
+static bool startup_complete = false;
+
+// Format a string to exactly LCD_WIDTH chars (pad or truncate)
+static void format_line(char *dest, const char *src) {
+    int len = strlen(src);
+    if (len >= LCD_WIDTH) {
+        memcpy(dest, src, LCD_WIDTH);
+        dest[LCD_WIDTH] = '\0';
+    } else {
+        strcpy(dest, src);
+        memset(dest + len, ' ', LCD_WIDTH - len);
+        dest[LCD_WIDTH] = '\0';
+    }
+}
+
+// Get next scheduled run info
+// Returns true if a schedule was found, fills zone_id, hour, minute
+static bool get_next_schedule(uint8_t *next_zone, uint8_t *next_hour, uint8_t *next_minute) {
+    time_t now = time(NULL);
+    if (now < 1000000000) {
+        return false;  // NTP not synced yet
+    }
+
+    struct tm tm_buf;
+    struct tm *tm_now = localtime_r(&now, &tm_buf);
+    if (!tm_now) {
+        return false;
+    }
+
+    int current_day = tm_now->tm_wday;  // 0 = Sunday
+    int current_hour = tm_now->tm_hour;
+    int current_minute = tm_now->tm_min;
+    int current_day_of_year = tm_now->tm_yday + 1;
+    int current_year = tm_now->tm_year + 1900;
+
+    // Convert current time to minutes since midnight
+    int current_mins = current_hour * 60 + current_minute;
+
+    int best_mins_away = 999999;  // Large number
+    uint8_t best_zone = 0;
+    uint8_t best_hour = 0;
+    uint8_t best_minute = 0;
+
+    for (int i = 1; i <= MAX_SCHEDULES; i++) {
+        const schedule_config_t *sched = config_get_schedule(i);
+        if (!sched || sched->zone_id == 0 || !sched->enabled) {
+            continue;
+        }
+
+        int sched_mins = sched->hour * 60 + sched->minute;
+
+        if (sched->type == SCHEDULE_TYPE_PERMANENT) {
+            // Weekly schedule - find next day in day_mask
+            for (int d = 0; d < 7; d++) {
+                int check_day = (current_day + d) % 7;
+                if (sched->day_mask & (1 << check_day)) {
+                    int mins_away;
+                    if (d == 0) {
+                        // Today - check if time has passed
+                        if (sched_mins > current_mins) {
+                            mins_away = sched_mins - current_mins;
+                        } else {
+                            continue;  // Already passed today, check next occurrence
+                        }
+                    } else {
+                        // Future day
+                        mins_away = (d * 24 * 60) + sched_mins - current_mins;
+                    }
+
+                    if (mins_away < best_mins_away) {
+                        best_mins_away = mins_away;
+                        best_zone = sched->zone_id;
+                        best_hour = sched->hour;
+                        best_minute = sched->minute;
+                    }
+                    break;  // Found next occurrence for this schedule
+                }
+            }
+        } else if (sched->type == SCHEDULE_TYPE_INTERVAL) {
+            // Interval schedule
+            int interval_days = sched->day_mask;
+            if (interval_days < 1) interval_days = 1;
+
+            int days_until_run = 0;
+            if (sched->last_run_year == 0) {
+                // Never run - will run today if time hasn't passed
+                if (sched_mins > current_mins) {
+                    days_until_run = 0;
+                } else {
+                    days_until_run = interval_days;
+                }
+            } else {
+                // Calculate days since last run
+                int days_since_last;
+                if (current_year == sched->last_run_year) {
+                    days_since_last = current_day_of_year - sched->last_run_day;
+                } else {
+                    int days_in_last_year = (sched->last_run_year % 4 == 0) ? 366 : 365;
+                    days_since_last = (days_in_last_year - sched->last_run_day) + current_day_of_year;
+                }
+
+                if (days_since_last >= interval_days) {
+                    // Due today
+                    if (sched_mins > current_mins) {
+                        days_until_run = 0;
+                    } else {
+                        days_until_run = interval_days;
+                    }
+                } else {
+                    days_until_run = interval_days - days_since_last;
+                }
+            }
+
+            int mins_away;
+            if (days_until_run == 0) {
+                mins_away = sched_mins - current_mins;
+            } else {
+                mins_away = (days_until_run * 24 * 60) + sched_mins - current_mins;
+            }
+
+            if (mins_away > 0 && mins_away < best_mins_away) {
+                best_mins_away = mins_away;
+                best_zone = sched->zone_id;
+                best_hour = sched->hour;
+                best_minute = sched->minute;
+            }
+        }
+    }
+
+    if (best_zone > 0) {
+        *next_zone = best_zone;
+        *next_hour = best_hour;
+        *next_minute = best_minute;
+        return true;
+    }
+    return false;
+}
+
+// LCD display task
+static void lcd_display_task(void *pvParameters) {
+    char line0[LCD_WIDTH + 1];
+    char line1[LCD_WIDTH + 1];
+    bool is_startup = true;
+
+    // Show initial startup message
+    lcd_set_text(0, 0, "Starting up....");
+
+    while (true) {
+        task_heartbeat(TASK_ID_LCD);
+        uint32_t now_ms = to_ms_since_boot(get_absolute_time());
+
+        // Check if startup is complete
+        if (xSemaphoreTake(lcd_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            is_startup = !startup_complete;
+            xSemaphoreGive(lcd_mutex);
+        }
+
+        // Line 0: "Starting up...." during startup, then zone status or "Idle"
+        if (is_startup) {
+            // Keep showing "Starting up...." - already set
+        } else {
+            scheduler_status_t status = scheduler_get_status();
+
+            if (status.active_zone > 0) {
+                // Zone is running
+                const zone_config_t *zone = config_get_zone(status.active_zone);
+                char zone_line[LCD_WIDTH + 1];
+                if (zone && zone->name[0] != '\0') {
+                    char name_buf[11];  // Max 10 chars for zone name
+                    strncpy(name_buf, zone->name, 10);
+                    name_buf[10] = '\0';
+                    snprintf(zone_line, sizeof(zone_line), "%-10s%3dmin", name_buf, status.remaining_mins);
+                } else {
+                    snprintf(zone_line, sizeof(zone_line), "Zone %d    %3dmin", status.active_zone, status.remaining_mins);
+                }
+                format_line(line0, zone_line);
+            } else {
+                format_line(line0, "Idle");
+            }
+            lcd_set_text(0, 0, line0);
+        }
+
+        // Line 1: Status during startup, IP for 1 min after connection, then next schedule
+        bool show_ip = false;
+        if (xSemaphoreTake(lcd_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            if (ip_address[0] != '\0' && ip_set_time_ms > 0) {
+                if ((now_ms - ip_set_time_ms) < IP_DISPLAY_DURATION_MS) {
+                    format_line(line1, ip_address);
+                    show_ip = true;
+                }
+            }
+            if (!show_ip && is_startup && startup_status[0] != '\0') {
+                format_line(line1, startup_status);
+                show_ip = true;  // Reuse flag to indicate we have content
+            }
+            xSemaphoreGive(lcd_mutex);
+        }
+
+        if (!show_ip && !is_startup) {
+            // Show next scheduled run
+            uint8_t next_zone, next_hour, next_minute;
+            if (get_next_schedule(&next_zone, &next_hour, &next_minute)) {
+                char next_line[LCD_WIDTH + 1];
+                snprintf(next_line, sizeof(next_line), "Next:Z%d %02d:%02d", next_zone, next_hour, next_minute);
+                format_line(line1, next_line);
+            } else {
+                format_line(line1, "No schedules");
+            }
+        } else if (!show_ip && is_startup) {
+            format_line(line1, "");
+        }
+
+        lcd_set_text(1, 0, line1);
+
+        vTaskDelay(pdMS_TO_TICKS(UPDATE_INTERVAL_MS));
+    }
+}
+
+void lcd_display_init(void) {
+    // Create mutex
+    lcd_mutex = xSemaphoreCreateMutex();
+
+    // Create display task
+    xTaskCreate(lcd_display_task, "LCDDisplay", 512, NULL, 0, NULL);
+}
+
+void lcd_display_set_status(const char *status) {
+    if (xSemaphoreTake(lcd_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        strncpy(startup_status, status, LCD_WIDTH);
+        startup_status[LCD_WIDTH] = '\0';
+        xSemaphoreGive(lcd_mutex);
+    }
+}
+
+void lcd_display_set_ip(const char *ip) {
+    if (xSemaphoreTake(lcd_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        strncpy(ip_address, ip, LCD_WIDTH);
+        ip_address[LCD_WIDTH] = '\0';
+        ip_set_time_ms = to_ms_since_boot(get_absolute_time());
+        xSemaphoreGive(lcd_mutex);
+    }
+}
+
+void lcd_display_startup_complete(void) {
+    if (xSemaphoreTake(lcd_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        startup_complete = true;
+        xSemaphoreGive(lcd_mutex);
+    }
+}

@@ -3,7 +3,9 @@
 #include "config.h"
 #include "config_flash.h"
 #include "dht22.h"
+#include "fault_tolerance.h"
 #include "lcd.h"
+#include "lcd_display.h"
 #include "zones.h"
 #include "scheduler.h"
 #include "lwip/apps/httpd.h"
@@ -60,10 +62,10 @@ bool network_init(void) {
 
   // Initialize the Wi-Fi chip
   printf("Network: Initializing WiFi chip...\n");
-  lcd_set_text(1, 0, "Init WiFi chip ");
+  lcd_display_set_status("Init WiFi chip");
   if (cyw43_arch_init()) {
     printf("Network: Wi-Fi chip init failed\n");
-    lcd_set_text(1, 0, "WiFi Failed    ");
+    lcd_display_set_status("WiFi Failed");
     return false;
   }
 
@@ -74,7 +76,7 @@ bool network_init(void) {
   wifi_config.password[MAX_PASSWORD_LENGTH] = '\0';
 
   printf("Network: Connecting to %s...\n", wifi_config.ssid);
-  lcd_set_text(1, 0, "Connecting WiFi");
+  lcd_display_set_status("Connecting WiFi");
 
   // Enable wifi station mode
   cyw43_arch_enable_sta_mode();
@@ -83,7 +85,7 @@ bool network_init(void) {
   if (cyw43_arch_wifi_connect_timeout_ms(wifi_config.ssid, wifi_config.password,
                                          CYW43_AUTH_WPA2_AES_PSK, 30000)) {
     printf("Network: Failed to connect to WiFi\n");
-    lcd_set_text(1, 0, "WiFi Failed    ");
+    lcd_display_set_status("WiFi Failed");
     return false;
   }
 
@@ -94,7 +96,7 @@ bool network_init(void) {
   ip4_addr = ip4addr_ntoa(netif_default ? &netif_default->ip_addr : NULL);
   printf("Network: IP address %s\n", ip4_addr);
   snprintf(ip_str, sizeof(ip_str), "%s", ip4_addr);
-  lcd_set_text(1, 0, ip4_addr);
+  lcd_display_set_ip(ip4_addr);
 
   // mDNS disabled - causes httpd to stop working
   // TODO: Investigate lwIP mDNS + httpd conflict
@@ -112,7 +114,36 @@ bool network_init(void) {
   printf("Network: NTP started\n");
 
   printf("Network: Initialization complete\n");
+  lcd_display_startup_complete();
   return true;
+}
+
+// Check if WiFi is connected
+static bool wifi_is_connected(void) {
+  int status = cyw43_wifi_link_status(&cyw43_state, CYW43_ITF_STA);
+  return (status == CYW43_LINK_JOIN);
+}
+
+// Attempt to reconnect WiFi
+static bool wifi_reconnect(void) {
+  printf("Network: Attempting WiFi reconnection...\n");
+  lcd_display_set_status("WiFi Reconnect");
+
+  // Try to reconnect with same credentials
+  int result = cyw43_arch_wifi_connect_timeout_ms(
+      WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK, 30000);
+
+  if (result == 0) {
+    printf("Network: WiFi reconnected!\n");
+    ip4_addr = ip4addr_ntoa(netif_default ? &netif_default->ip_addr : NULL);
+    printf("Network: IP address %s\n", ip4_addr);
+    lcd_display_set_ip(ip4_addr);
+    lcd_display_startup_complete();
+    return true;
+  } else {
+    printf("Network: WiFi reconnection failed (error %d)\n", result);
+    return false;
+  }
 }
 
 static const char *cgi_handler_default(int index, int numParams, char *params[],
@@ -445,8 +476,24 @@ void httpd_task(void *pvParameters) {
 
   printf("HTTPD: Web server running on port 80\n");
 
-  // Keep task alive
+  uint32_t last_wifi_check = to_ms_since_boot(get_absolute_time());
+
+  // Keep task alive and monitor WiFi connection
   while (true) {
+    task_heartbeat(TASK_ID_NETWORK);
+
+    uint32_t now = to_ms_since_boot(get_absolute_time());
+
+    // Check WiFi status periodically
+    if ((now - last_wifi_check) >= WIFI_CHECK_INTERVAL_MS) {
+      last_wifi_check = now;
+
+      if (!wifi_is_connected()) {
+        printf("HTTPD: WiFi disconnected, attempting reconnection\n");
+        wifi_reconnect();
+      }
+    }
+
     vTaskDelay(pdMS_TO_TICKS(1000));
   }
 }

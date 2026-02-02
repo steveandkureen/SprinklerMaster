@@ -98,6 +98,10 @@ static void config_set_defaults(void) {
         g_config.schedules[i].enabled = 0;
     }
 
+    // Boot statistics start at 0
+    g_config.boot_count = 0;
+    g_config.watchdog_reset_count = 0;
+
     // Calculate CRC
     g_config.crc32 = config_calculate_crc(&g_config);
 }
@@ -164,6 +168,12 @@ void config_init(void) {
         printf("Config: No valid configuration found, using defaults\n");
         config_set_defaults();
     }
+
+    // Increment boot count (will be saved later after FreeRTOS starts)
+    g_config.boot_count++;
+    printf("Config: Boot count = %lu (watchdog resets = %lu)\n",
+           (unsigned long)g_config.boot_count,
+           (unsigned long)g_config.watchdog_reset_count);
 
     // Print zone info
     for (int i = 0; i < MAX_ZONES; i++) {
@@ -313,6 +323,23 @@ void config_set_schedule_last_run(uint8_t schedule_id, uint16_t day_of_year, uin
     }
     g_config.schedules[schedule_id - 1].last_run_day = day_of_year;
     g_config.schedules[schedule_id - 1].last_run_year = year;
+}
+
+// Boot statistics
+uint32_t config_get_boot_count(void) {
+    return g_config.boot_count;
+}
+
+uint32_t config_get_watchdog_reset_count(void) {
+    return g_config.watchdog_reset_count;
+}
+
+void config_increment_boot_count(void) {
+    g_config.boot_count++;
+}
+
+void config_increment_watchdog_reset_count(void) {
+    g_config.watchdog_reset_count++;
 }
 
 // Reset to factory defaults

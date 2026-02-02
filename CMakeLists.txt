@@ -63,6 +63,8 @@ add_executable(BasicRTOS
       src/config_flash.c
       src/zones.c
       src/scheduler.c
+      src/lcd_display.c
+      src/fault_tolerance.c
       lcd.c)
 
 
@@ -78,6 +80,7 @@ target_link_libraries(BasicRTOS PRIVATE
         pico_multicore
         pico_stdlib
         hardware_i2c
+        hardware_watchdog
         pico_flash
         pico_cyw43_arch_lwip_sys_freertos
         pico_lwip_http

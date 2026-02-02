@@ -6,7 +6,7 @@
 
 // Configuration constants
 #define CONFIG_MAGIC 0xCAFE
-#define CONFIG_VERSION 3  // v3: Added timezone
+#define CONFIG_VERSION 4  // v4: Added boot counters
 #define MAX_ZONES 8
 #define MAX_SCHEDULES 20
 #define MAX_SSID_LEN 32
@@ -70,6 +70,10 @@ typedef struct {
     // Schedule configurations (20 * 12 = 240 bytes)
     schedule_config_t schedules[MAX_SCHEDULES];
 
+    // Boot statistics (8 bytes)
+    uint32_t boot_count;                    // Total number of boots
+    uint32_t watchdog_reset_count;          // Number of watchdog-triggered resets
+
     uint32_t crc32;                         // Data integrity check
 } sprinkler_config_t;
 
@@ -102,6 +106,12 @@ void config_set_schedule(uint8_t schedule_id, const schedule_config_t* schedule)
 const schedule_config_t* config_get_schedule(uint8_t schedule_id);
 void config_clear_schedule(uint8_t schedule_id);
 void config_set_schedule_last_run(uint8_t schedule_id, uint16_t day_of_year, uint16_t year);
+
+// Boot statistics
+uint32_t config_get_boot_count(void);
+uint32_t config_get_watchdog_reset_count(void);
+void config_increment_boot_count(void);
+void config_increment_watchdog_reset_count(void);
 
 // Utility functions
 void config_reset_to_defaults(void);
