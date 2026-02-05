@@ -1,7 +1,11 @@
 #include "config_flash.h"
+#include "FreeRTOS.h"
+#include "task.h"
 #include "hardware/flash.h"
 #include "hardware/sync.h"
+#include "hardware/watchdog.h"
 #include "pico/flash.h"
+#include "pico/multicore.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -203,14 +207,33 @@ bool config_save(void) {
         .size = sizeof(sprinkler_config_t)
     };
 
-    // Use flash_safe_execute for FreeRTOS safety
-    // This disables interrupts on both cores during flash operations
-    int result = flash_safe_execute(flash_write_callback, &ctx, UINT32_MAX);
+    // Feed watchdog before flash operation since it blocks all interrupts
+    watchdog_update();
 
-    if (result != PICO_OK) {
-        printf("Config: Flash write failed (error %d)\n", result);
+    // Suspend scheduler and lock out other core for flash safety
+    vTaskSuspendAll();
+
+    // Try to lock out the other core (with timeout)
+    bool lockout_ok = multicore_lockout_start_timeout_us(1000000);  // 1 second timeout
+    if (!lockout_ok) {
+        printf("Config: Failed to lock out other core\n");
+        xTaskResumeAll();
         return false;
     }
+
+    // Disable interrupts and do flash operation
+    uint32_t ints = save_and_disable_interrupts();
+
+    // Erase and program flash directly
+    flash_range_erase(CONFIG_FLASH_OFFSET, FLASH_SECTOR_SIZE);
+    size_t write_size = (ctx.size + FLASH_PAGE_SIZE - 1) & ~(FLASH_PAGE_SIZE - 1);
+    flash_range_program(CONFIG_FLASH_OFFSET, ctx.data, write_size);
+
+    restore_interrupts(ints);
+
+    // Release other core and resume scheduler
+    multicore_lockout_end_blocking();
+    xTaskResumeAll();
 
     // Verify the write
     const sprinkler_config_t* flash_config = (const sprinkler_config_t*)CONFIG_FLASH_ADDR;

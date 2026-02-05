@@ -74,6 +74,13 @@ void NetworkTask(void *pvParameters) {
   // TODO: Boot stats save disabled - flash_safe_execute deadlocks with FreeRTOS SMP
   // fault_tolerance_save_boot_stats();
 
+  // Wait 60 seconds for system to stabilize before enabling watchdog
+  printf("Waiting 60s for system to stabilize before enabling watchdog...\n");
+  for (int i = 0; i < 60; i++) {
+    task_heartbeat(TASK_ID_NETWORK);
+    vTaskDelay(pdMS_TO_TICKS(1000));
+  }
+
   // Enable watchdog now that startup is complete
   fault_tolerance_enable_watchdog();
 

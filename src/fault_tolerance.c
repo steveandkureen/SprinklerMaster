@@ -50,13 +50,30 @@ bool was_watchdog_reset(void) {
     return watchdog_caused_reset;
 }
 
+// Task names for debug output
+static const char *task_names[] = {
+    "NETWORK", "SENSOR", "LED", "SCHEDULER", "LCD"
+};
+
 // Check if all monitored tasks are healthy
 static bool all_tasks_healthy(void) {
     TickType_t now = xTaskGetTickCount();
+    static TickType_t last_warning = 0;
 
     for (int i = 0; i < TASK_ID_COUNT; i++) {
+        // Skip LED task - it uses cyw43 which can block on network operations
+        if (i == TASK_ID_LED) {
+            continue;
+        }
+
         TickType_t elapsed = now - task_last_heartbeat[i];
         if (elapsed > TASK_HEARTBEAT_TIMEOUT_TICKS) {
+            // Only print warning once per second to avoid flooding
+            if ((now - last_warning) > 1000) {
+                printf("WATCHDOG: Task %s missed heartbeat (%lu ticks)\n",
+                       task_names[i], (unsigned long)elapsed);
+                last_warning = now;
+            }
             return false;
         }
     }
@@ -125,4 +142,11 @@ void fault_tolerance_enable_watchdog(void) {
     watchdog_enable(WATCHDOG_TIMEOUT_MS, true);
 
     printf("Watchdog enabled (%dms timeout)\n", WATCHDOG_TIMEOUT_MS);
+}
+
+void fault_tolerance_log_memory_stats(void) {
+    size_t free_heap = xPortGetFreeHeapSize();
+    size_t min_ever_free = xPortGetMinimumEverFreeHeapSize();
+    printf("Heap: %u free, %u min ever\n",
+           (unsigned)free_heap, (unsigned)min_ever_free);
 }
