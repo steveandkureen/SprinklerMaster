@@ -219,6 +219,7 @@ void scheduler_task(void *pvParameters) {
   const int heartbeat_interval_sec = 5;
   const int checks_per_interval = SCHEDULER_CHECK_INTERVAL_SEC / heartbeat_interval_sec;
   int check_counter = checks_per_interval;  // Run immediately on first iteration
+  int memory_log_counter = 0;  // Log memory stats every 60 seconds
 
   while (true) {
     task_heartbeat(TASK_ID_SCHEDULER);
@@ -226,6 +227,13 @@ void scheduler_task(void *pvParameters) {
     check_counter++;
     if (check_counter >= checks_per_interval) {
       check_counter = 0;
+
+      // Log memory stats every other check (60 seconds)
+      memory_log_counter++;
+      if (memory_log_counter >= 2) {
+        memory_log_counter = 0;
+        fault_tolerance_log_memory_stats();
+      }
 
       // Only run schedules if NTP is synced
       if (time(NULL) >= 1000000000) {

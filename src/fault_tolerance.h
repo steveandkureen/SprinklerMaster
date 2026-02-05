@@ -46,4 +46,7 @@ void fault_tolerance_save_boot_stats(void);
 // Enable watchdog (call after FreeRTOS starts and tasks are running)
 void fault_tolerance_enable_watchdog(void);
 
+// Log heap memory statistics (call periodically to monitor for leaks)
+void fault_tolerance_log_memory_stats(void);
+
 #endif // FAULT_TOLERANCE_H
