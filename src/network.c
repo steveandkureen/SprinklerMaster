@@ -137,6 +137,7 @@ static const char *cgi_handler_zones_save(int index, int numParams, char *params
     // Save to flash
     if (config_save()) {
         printf("Zone config saved to flash\n");
+        net_cmd_push(NET_CMD_CONFIG_RELOAD);
         return "/api/success.json";
     } else {
         printf("Failed to save zone config\n");
@@ -192,6 +193,7 @@ static const char *cgi_handler_schedules_save(int index, int numParams, char *pa
 
     if (config_save()) {
         printf("Schedule saved to flash\n");
+        net_cmd_push(NET_CMD_CONFIG_RELOAD);
         return "/api/success.json";
     } else {
         printf("Failed to save schedule\n");
@@ -217,6 +219,7 @@ static const char *cgi_handler_schedule_delete(int index, int numParams, char *p
 
     if (config_save()) {
         printf("Schedule %d deleted\n", schedule_id);
+        net_cmd_push(NET_CMD_CONFIG_RELOAD);
         return "/api/success.json";
     }
     return "/api/error.json";
@@ -235,9 +238,9 @@ static const char *cgi_handler_zone_on(int index, int numParams, char *params[],
     int zone_id = atoi(id_val);
     uint16_t duration = dur_val ? (uint16_t)atoi(dur_val) : 10;  // Default 10 minutes
 
-    // Use scheduler for manual run to track duration
-    scheduler_manual_run(zone_id, duration);
-    printf("Zone %d started for %d minutes\n", zone_id, duration);
+    // Send command to Core 0 via FIFO
+    net_cmd_push(NET_MAKE_ZONE_ON(zone_id, duration));
+    printf("Zone %d start command sent (%d minutes)\n", zone_id, duration);
     return "/api/success.json";
 }
 
@@ -245,9 +248,9 @@ static const char *cgi_handler_zone_off(int index, int numParams, char *params[]
                                         char *value[]) {
     printf("zone off API called\n");
 
-    // Use scheduler to stop current zone (handles cleanup)
-    scheduler_stop_current();
-    printf("Zone stopped\n");
+    // Send stop command to Core 0 via FIFO
+    net_cmd_push(NET_CMD_ZONE_OFF);
+    printf("Zone stop command sent\n");
     return "/api/success.json";
 }
 
