@@ -1,6 +1,4 @@
 #include "config_flash.h"
-#include "FreeRTOS.h"
-#include "task.h"
 #include "hardware/flash.h"
 #include "hardware/sync.h"
 #include "hardware/watchdog.h"
@@ -210,14 +208,10 @@ bool config_save(void) {
     // Feed watchdog before flash operation since it blocks all interrupts
     watchdog_update();
 
-    // Suspend scheduler and lock out other core for flash safety
-    vTaskSuspendAll();
-
-    // Try to lock out the other core (with timeout)
+    // Try to lock out the other core (with timeout) - still needed for dual-core safety
     bool lockout_ok = multicore_lockout_start_timeout_us(1000000);  // 1 second timeout
     if (!lockout_ok) {
         printf("Config: Failed to lock out other core\n");
-        xTaskResumeAll();
         return false;
     }
 
@@ -231,9 +225,8 @@ bool config_save(void) {
 
     restore_interrupts(ints);
 
-    // Release other core and resume scheduler
+    // Release other core
     multicore_lockout_end_blocking();
-    xTaskResumeAll();
 
     // Verify the write
     const sprinkler_config_t* flash_config = (const sprinkler_config_t*)CONFIG_FLASH_ADDR;

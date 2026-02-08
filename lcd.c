@@ -1,8 +1,6 @@
 #include "lcd.h"
-#include "FreeRTOS.h"
 #include "hardware/i2c.h"
 #include "pico/stdlib.h"
-#include "task.h"
 #include <stdio.h>
 
 // Helper to safely delay - use busy_wait to avoid FreeRTOS conflicts

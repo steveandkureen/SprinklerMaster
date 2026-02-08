@@ -3,10 +3,11 @@
 
 #include <stdbool.h>
 
-// Initialize network (WiFi, mDNS, NTP) - call before FreeRTOS starts
+// Initialize network (WiFi, NTP, HTTP server)
 bool network_init(void);
 
-// Start the HTTP server task
-void httpd_task(void *pvParameters);
+// Check WiFi connection and reconnect if needed
+// Call periodically from main loop (~30 seconds)
+void network_check_wifi(void);
 
 #endif // NETWORK_H

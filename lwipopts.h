@@ -1,13 +1,13 @@
 #ifndef _LWIPOPTS_H
 #define _LWIPOPTS_H
 
-// lwIP configuration for Pico W with FreeRTOS
+// lwIP configuration for Pico W with bare-metal super loop (NO_SYS mode)
 // (see https://www.nongnu.org/lwip/2_1_x/group__lwip__opts.html)
 
-// FreeRTOS mode (NO_SYS = 0)
-#define NO_SYS 0
-#define LWIP_SOCKET 1
-#define LWIP_NETCONN 1
+// Bare-metal mode (NO_SYS = 1)
+#define NO_SYS 1
+#define LWIP_SOCKET 0
+#define LWIP_NETCONN 0
 
 // Memory settings
 #define MEM_LIBC_MALLOC 0
@@ -47,16 +47,8 @@
 #define DHCP_DOES_ARP_CHECK 0
 #define LWIP_DHCP_DOES_ACD_CHECK 0
 
-// FreeRTOS threading settings
-#define TCPIP_THREAD_STACKSIZE 1024
-#define DEFAULT_THREAD_STACKSIZE 2048
-#define DEFAULT_RAW_RECVMBOX_SIZE 8
-#define TCPIP_MBOX_SIZE 8
+// NO_SYS mode does not require thread settings
 #define LWIP_TIMEVAL_PRIVATE 0
-#define LWIP_TCPIP_CORE_LOCKING_INPUT 1
-
-// Socket options
-#define LWIP_SO_RCVTIMEO 1
 
 // Stats settings
 #define MEM_STATS 0

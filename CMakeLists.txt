@@ -29,8 +29,7 @@ set(PICO_PLATFORM rp2350-arm-s)
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
-set(FREERTOS_KERNEL_PATH ${CMAKE_CURRENT_LIST_DIR}/FreeRTOS)
-include(FreeRTOS_Kernel_import.cmake)
+# FreeRTOS removed - using bare-metal super loop architecture
 
 project(BasicRTOS C CXX ASM)
 
@@ -82,13 +81,11 @@ target_link_libraries(BasicRTOS PRIVATE
         hardware_i2c
         hardware_watchdog
         pico_flash
-        pico_cyw43_arch_lwip_sys_freertos
+        pico_cyw43_arch_lwip_poll
         pico_lwip_http
         pico_lwip_mdns
         pico_lwip_sntp
-        pico_httpd_content
-        FreeRTOS-Kernel
-        FreeRTOS-Kernel-Heap4)
+        pico_httpd_content)
 
 # Add the standard include files to the build
 target_include_directories(BasicRTOS PRIVATE

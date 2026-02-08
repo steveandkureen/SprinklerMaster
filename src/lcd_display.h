@@ -1,8 +1,11 @@
 #ifndef LCD_DISPLAY_H
 #define LCD_DISPLAY_H
 
-// Initialize the LCD display task
+// Initialize the LCD display (setup, no task creation)
 void lcd_display_init(void);
+
+// Polling function - call periodically from main loop (~1 second)
+void lcd_display_poll(void);
 
 // Set status message during startup (shown on line 1)
 void lcd_display_set_status(const char* status);

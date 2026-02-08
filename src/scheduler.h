@@ -12,8 +12,11 @@ typedef struct {
     uint32_t run_end_ms;        // When the current run should end
 } scheduler_status_t;
 
-// Initialize and start the scheduler task
+// Initialize the scheduler (setup, no task creation)
 void scheduler_init(void);
+
+// Polling function - call periodically from main loop (~5 seconds)
+void scheduler_poll(void);
 
 // Manual run - start a zone for specified duration
 // If another zone is running, it will be stopped first
@@ -24,8 +27,5 @@ void scheduler_stop_current(void);
 
 // Get current scheduler status
 scheduler_status_t scheduler_get_status(void);
-
-// The FreeRTOS task function (called internally by scheduler_init)
-void scheduler_task(void *pvParameters);
 
 #endif // SCHEDULER_H
