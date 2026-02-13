@@ -58,6 +58,12 @@ static void process_core1_commands(void) {
             printf("CMD: Zone off requested\n");
             scheduler_stop_current();
             break;
+        case NET_CMD_PROGRAM_RUN: {
+            uint8_t program_id = NET_CMD_ZONE_ID(cmd);
+            printf("CMD: Program %d run requested\n", program_id);
+            scheduler_run_program(program_id);
+            break;
+        }
         default:
             printf("CMD: Unknown command 0x%08lX\n", (unsigned long)cmd);
             break;

@@ -96,7 +96,7 @@
 #define LWIP_HTTPD_SSI 1
 #define LWIP_HTTPD_SSI_INCLUDE_TAG 0
 #define LWIP_HTTPD_SSI_EXTENSIONS ".shtml", ".shtm", ".ssi", ".xml", ".json", ".html"
-#define LWIP_HTTPD_MAX_TAG_INSERT_LEN 2048  // Increased for schedule JSON output
+#define LWIP_HTTPD_MAX_TAG_INSERT_LEN 3072  // Increased for schedule + program JSON output
 #define HTTPD_FSDATA_FILE "pico_fsdata.inc"
 
 // SNTP (NTP time sync) settings

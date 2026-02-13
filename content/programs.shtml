@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SprinklerMaster - Program Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 min-h-screen p-4">
+    <div class="max-w-4xl mx-auto">
+
+        <!-- Header -->
+        <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 mb-6 border border-white/20">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-white mb-1">Program Manager</h1>
+                    <p class="text-purple-200">Create programs to run multiple zones sequentially</p>
+                </div>
+                <a href="/dashboard.html" class="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/50 text-purple-100 px-4 py-2 rounded-lg font-semibold transition-all">
+                    Back to Dashboard
+                </a>
+            </div>
+        </div>
+
+        <!-- Status Message -->
+        <div id="status-message" class="hidden bg-green-500/20 border border-green-500/50 rounded-xl p-4 mb-6">
+            <p class="text-green-200 text-center font-medium" id="status-text">Program saved!</p>
+        </div>
+
+        <!-- Add New Program Button -->
+        <div class="mb-6">
+            <button onclick="showAddForm()" id="add-btn" class="bg-green-500/20 hover:bg-green-500/30 border border-green-500/50 text-green-100 px-6 py-3 rounded-lg font-semibold transition-all">
+                + Add New Program
+            </button>
+        </div>
+
+        <!-- Add/Edit Program Form (hidden by default) -->
+        <div id="program-form" class="hidden bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 mb-6 border border-white/20">
+            <h2 class="text-xl font-semibold text-white mb-4" id="form-title">New Program</h2>
+            <input type="hidden" id="edit-id" value="">
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Program Name -->
+                <div>
+                    <label class="text-purple-200 text-sm mb-1 block">Program Name</label>
+                    <input type="text" id="prog-name" maxlength="15" placeholder="e.g. Front Yard"
+                           class="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500">
+                </div>
+
+                <!-- Schedule Type -->
+                <div>
+                    <label class="text-purple-200 text-sm mb-1 block">Schedule Type</label>
+                    <select id="prog-type" onchange="toggleScheduleType()" class="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500">
+                        <option value="0">Weekly (specific days)</option>
+                        <option value="1">Interval (every N days)</option>
+                    </select>
+                </div>
+
+                <!-- Start Time -->
+                <div>
+                    <label class="text-purple-200 text-sm mb-1 block">Start Time</label>
+                    <input type="time" id="prog-time" value="06:00"
+                           class="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500">
+                </div>
+
+                <!-- Enabled -->
+                <div class="flex items-center gap-3 pt-6">
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="prog-enabled" checked class="sr-only peer">
+                        <div class="w-11 h-6 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                    </label>
+                    <span class="text-purple-200">Enabled</span>
+                </div>
+            </div>
+
+            <!-- Days of Week (for weekly type) -->
+            <div id="weekly-options" class="mt-4">
+                <label class="text-purple-200 text-sm mb-2 block">Days of Week</label>
+                <div class="flex flex-wrap gap-2">
+                    <label class="cursor-pointer">
+                        <input type="checkbox" id="day-0" class="sr-only peer">
+                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-purple-200 peer-checked:bg-purple-500 peer-checked:text-white peer-checked:border-purple-500 transition-all inline-block">Sun</span>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="checkbox" id="day-1" class="sr-only peer">
+                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-purple-200 peer-checked:bg-purple-500 peer-checked:text-white peer-checked:border-purple-500 transition-all inline-block">Mon</span>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="checkbox" id="day-2" class="sr-only peer">
+                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-purple-200 peer-checked:bg-purple-500 peer-checked:text-white peer-checked:border-purple-500 transition-all inline-block">Tue</span>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="checkbox" id="day-3" class="sr-only peer">
+                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-purple-200 peer-checked:bg-purple-500 peer-checked:text-white peer-checked:border-purple-500 transition-all inline-block">Wed</span>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="checkbox" id="day-4" class="sr-only peer">
+                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-purple-200 peer-checked:bg-purple-500 peer-checked:text-white peer-checked:border-purple-500 transition-all inline-block">Thu</span>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="checkbox" id="day-5" class="sr-only peer">
+                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-purple-200 peer-checked:bg-purple-500 peer-checked:text-white peer-checked:border-purple-500 transition-all inline-block">Fri</span>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="checkbox" id="day-6" class="sr-only peer">
+                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-purple-200 peer-checked:bg-purple-500 peer-checked:text-white peer-checked:border-purple-500 transition-all inline-block">Sat</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Interval Options (for interval type) -->
+            <div id="interval-options" class="mt-4 hidden">
+                <label class="text-purple-200 text-sm mb-2 block">Run Every</label>
+                <div class="flex items-center gap-3">
+                    <input type="number" id="prog-interval" min="1" max="30" value="2"
+                           class="w-24 bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500">
+                    <span class="text-purple-200">days</span>
+                </div>
+            </div>
+
+            <!-- Steps Builder -->
+            <div class="mt-6">
+                <div class="flex items-center justify-between mb-3">
+                    <label class="text-purple-200 text-sm">Zone Steps (run sequentially)</label>
+                    <button onclick="addStep()" id="add-step-btn" class="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/50 text-purple-100 px-3 py-1 rounded-lg text-sm transition-all">
+                        + Add Step
+                    </button>
+                </div>
+                <div id="steps-container" class="space-y-2">
+                    <!-- Steps populated by JS -->
+                </div>
+                <p class="text-purple-400 text-xs mt-2">Each step runs after the previous one completes. Max 8 steps.</p>
+            </div>
+
+            <!-- Form Buttons -->
+            <div class="mt-6 flex justify-end gap-4">
+                <button onclick="hideForm()" class="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-6 py-2 rounded-lg font-semibold transition-all">
+                    Cancel
+                </button>
+                <button onclick="saveProgram()" class="bg-green-500/20 hover:bg-green-500/30 border border-green-500/50 text-green-100 px-6 py-2 rounded-lg font-semibold transition-all">
+                    Save Program
+                </button>
+            </div>
+        </div>
+
+        <!-- Existing Programs -->
+        <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 border border-white/20">
+            <h2 class="text-xl font-semibold text-white mb-4">Existing Programs</h2>
+            <div id="programs-list" class="space-y-3">
+                <!-- Populated by JS -->
+            </div>
+            <div id="no-programs" class="hidden text-center py-8">
+                <p class="text-purple-300">No programs configured.</p>
+                <p class="text-purple-400 text-sm mt-1">Click "Add New Program" to create one.</p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center mt-8 pb-8">
+            <p class="text-purple-300 text-sm">
+                Powered by FreeRTOS - lwIP - Pico SDK 2.2.0
+            </p>
+        </div>
+    </div>
+
+    <script>
+        let zones = [];
+        let programs = [];
+        let steps = [];
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const SCHEDULE_TYPE_WEEKLY = 0;
+        const SCHEDULE_TYPE_INTERVAL = 1;
+
+        function formatTime(hour, minute) {
+            const h = hour % 12 || 12;
+            const ampm = hour < 12 ? 'AM' : 'PM';
+            return `${h}:${minute.toString().padStart(2, '0')} ${ampm}`;
+        }
+
+        function formatDays(dayMask, type) {
+            if (type === SCHEDULE_TYPE_INTERVAL) {
+                if (dayMask === 1) return 'Every day';
+                return `Every ${dayMask} days`;
+            }
+            if (dayMask === 127) return 'Every day';
+            if (dayMask === 62) return 'Weekdays';
+            if (dayMask === 65) return 'Weekends';
+            const days = [];
+            for (let i = 0; i < 7; i++) {
+                if (dayMask & (1 << i)) days.push(dayNames[i]);
+            }
+            return days.join(', ') || 'No days';
+        }
+
+        function getZoneName(zoneId) {
+            const zone = zones.find(z => z.id === zoneId);
+            return zone ? zone.name : `Zone ${zoneId}`;
+        }
+
+        function toggleScheduleType() {
+            const type = parseInt(document.getElementById('prog-type').value);
+            document.getElementById('weekly-options').classList.toggle('hidden', type === SCHEDULE_TYPE_INTERVAL);
+            document.getElementById('interval-options').classList.toggle('hidden', type !== SCHEDULE_TYPE_INTERVAL);
+        }
+
+        function renderSteps() {
+            const container = document.getElementById('steps-container');
+            document.getElementById('add-step-btn').style.display = steps.length >= 8 ? 'none' : '';
+
+            if (steps.length === 0) {
+                container.innerHTML = '<p class="text-purple-400 text-sm text-center py-2">No steps added. Click "+ Add Step" to add zones.</p>';
+                return;
+            }
+
+            container.innerHTML = steps.map((step, idx) => `
+                <div class="flex items-center gap-2 bg-white/5 rounded-lg p-3 border border-white/10">
+                    <span class="text-purple-300 text-sm font-mono w-6">${idx + 1}.</span>
+                    <select id="step-zone-${idx}" class="flex-1 bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-white text-sm" onchange="updateStep(${idx})">
+                        ${zones.filter(z => z.enabled).map(z =>
+                            `<option value="${z.id}" ${z.id === step.zone ? 'selected' : ''}>${z.name}</option>`
+                        ).join('')}
+                    </select>
+                    <input type="number" id="step-dur-${idx}" min="1" max="240" value="${step.duration}"
+                           class="w-20 bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-white text-sm text-center" onchange="updateStep(${idx})">
+                    <span class="text-purple-300 text-sm">min</span>
+                    <button onclick="removeStep(${idx})" class="text-red-400 hover:text-red-300 text-lg px-1">&times;</button>
+                </div>
+            `).join('');
+        }
+
+        function addStep() {
+            if (steps.length >= 8) return;
+            const enabledZones = zones.filter(z => z.enabled);
+            steps.push({ zone: enabledZones[0]?.id || 1, duration: 15 });
+            renderSteps();
+        }
+
+        function removeStep(idx) {
+            steps.splice(idx, 1);
+            renderSteps();
+        }
+
+        function updateStep(idx) {
+            steps[idx].zone = parseInt(document.getElementById(`step-zone-${idx}`).value);
+            steps[idx].duration = parseInt(document.getElementById(`step-dur-${idx}`).value) || 15;
+        }
+
+        function formatStepsSummary(prog) {
+            if (!prog.steps || prog.steps.length === 0) return 'No steps';
+            return prog.steps.map(s => `${getZoneName(s.zone)} ${s.duration}m`).join(' → ');
+        }
+
+        function getTotalDuration(prog) {
+            if (!prog.steps) return 0;
+            return prog.steps.reduce((sum, s) => sum + s.duration, 0);
+        }
+
+        function createProgramCard(prog) {
+            const timeStr = formatTime(prog.hour, prog.minute);
+            const daysStr = formatDays(prog.days, prog.type);
+            const typeLabel = prog.type === SCHEDULE_TYPE_INTERVAL ? 'Interval' : 'Weekly';
+            const statusClass = prog.enabled
+                ? 'bg-green-500/20 border-green-500/50'
+                : 'bg-white/5 border-white/10 opacity-60';
+            const totalDur = getTotalDuration(prog);
+
+            return `
+                <div class="${statusClass} rounded-xl p-4 border">
+                    <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                <h3 class="text-lg font-semibold text-white">${prog.name || 'Unnamed'}</h3>
+                                <span class="text-xs bg-purple-500/30 text-purple-200 px-2 py-0.5 rounded">${typeLabel}</span>
+                                ${prog.enabled ? '' : '<span class="text-xs bg-white/20 text-purple-200 px-2 py-0.5 rounded">Disabled</span>'}
+                            </div>
+                            <p class="text-purple-200 text-sm">${timeStr} - ${daysStr} - ${totalDur} min total</p>
+                            <p class="text-purple-300 text-xs mt-1">${formatStepsSummary(prog)}</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="runProgram(${prog.id})" class="bg-green-500/20 hover:bg-green-500/30 border border-green-500/50 text-green-100 px-4 py-2 rounded-lg text-sm transition-all">
+                                Run Now
+                            </button>
+                            <button onclick="editProgram(${prog.id})" class="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/50 text-purple-100 px-4 py-2 rounded-lg text-sm transition-all">
+                                Edit
+                            </button>
+                            <button onclick="deleteProgram(${prog.id})" class="bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-100 px-4 py-2 rounded-lg text-sm transition-all">
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadZones() {
+            try {
+                const response = await fetch('/api/zones');
+                const data = await response.json();
+                zones = data.zones || [];
+            } catch (error) {
+                console.error('Error loading zones:', error);
+            }
+        }
+
+        async function loadPrograms() {
+            try {
+                const response = await fetch('/api/programs');
+                const data = await response.json();
+                programs = data.programs || [];
+
+                const container = document.getElementById('programs-list');
+                const noPrograms = document.getElementById('no-programs');
+
+                if (programs.length === 0) {
+                    container.innerHTML = '';
+                    noPrograms.classList.remove('hidden');
+                } else {
+                    noPrograms.classList.add('hidden');
+                    container.innerHTML = programs.map(p => createProgramCard(p)).join('');
+                }
+            } catch (error) {
+                console.error('Error loading programs:', error);
+            }
+        }
+
+        function showAddForm() {
+            document.getElementById('form-title').textContent = 'New Program';
+            document.getElementById('edit-id').value = '';
+            document.getElementById('prog-name').value = '';
+            document.getElementById('prog-type').value = '0';
+            document.getElementById('prog-time').value = '06:00';
+            document.getElementById('prog-enabled').checked = true;
+            document.getElementById('prog-interval').value = '2';
+
+            for (let i = 0; i < 7; i++) {
+                document.getElementById(`day-${i}`).checked = false;
+            }
+
+            steps = [];
+            toggleScheduleType();
+            renderSteps();
+
+            document.getElementById('program-form').classList.remove('hidden');
+            document.getElementById('add-btn').classList.add('hidden');
+        }
+
+        function hideForm() {
+            document.getElementById('program-form').classList.add('hidden');
+            document.getElementById('add-btn').classList.remove('hidden');
+        }
+
+        function editProgram(id) {
+            const prog = programs.find(p => p.id === id);
+            if (!prog) return;
+
+            document.getElementById('form-title').textContent = 'Edit Program';
+            document.getElementById('edit-id').value = id;
+            document.getElementById('prog-name').value = prog.name;
+            document.getElementById('prog-type').value = prog.type.toString();
+            document.getElementById('prog-time').value =
+                `${prog.hour.toString().padStart(2, '0')}:${prog.minute.toString().padStart(2, '0')}`;
+            document.getElementById('prog-enabled').checked = prog.enabled;
+
+            if (prog.type === SCHEDULE_TYPE_INTERVAL) {
+                document.getElementById('prog-interval').value = prog.days;
+                for (let i = 0; i < 7; i++) document.getElementById(`day-${i}`).checked = false;
+            } else {
+                document.getElementById('prog-interval').value = '2';
+                for (let i = 0; i < 7; i++) {
+                    document.getElementById(`day-${i}`).checked = (prog.days & (1 << i)) !== 0;
+                }
+            }
+
+            steps = (prog.steps || []).map(s => ({ zone: s.zone, duration: s.duration }));
+
+            toggleScheduleType();
+            renderSteps();
+
+            document.getElementById('program-form').classList.remove('hidden');
+            document.getElementById('add-btn').classList.add('hidden');
+        }
+
+        async function saveProgram() {
+            // Read back current step values from DOM
+            for (let i = 0; i < steps.length; i++) {
+                const zoneEl = document.getElementById(`step-zone-${i}`);
+                const durEl = document.getElementById(`step-dur-${i}`);
+                if (zoneEl) steps[i].zone = parseInt(zoneEl.value);
+                if (durEl) steps[i].duration = parseInt(durEl.value) || 15;
+            }
+
+            let editId = document.getElementById('edit-id').value;
+            const name = document.getElementById('prog-name').value.trim();
+            const type = parseInt(document.getElementById('prog-type').value);
+            const time = document.getElementById('prog-time').value;
+            const enabled = document.getElementById('prog-enabled').checked;
+
+            if (!name) {
+                showStatus('Please enter a program name', 'red');
+                return;
+            }
+
+            if (steps.length === 0) {
+                showStatus('Please add at least one step', 'red');
+                return;
+            }
+
+            let daysValue = 0;
+            if (type === SCHEDULE_TYPE_INTERVAL) {
+                daysValue = parseInt(document.getElementById('prog-interval').value) || 2;
+            } else {
+                for (let i = 0; i < 7; i++) {
+                    if (document.getElementById(`day-${i}`).checked) daysValue |= (1 << i);
+                }
+            }
+
+            const [hour, minute] = time.split(':').map(Number);
+
+            if (!editId) {
+                const usedIds = programs.map(p => p.id);
+                for (let i = 1; i <= 4; i++) {
+                    if (!usedIds.includes(i)) { editId = i; break; }
+                }
+                if (!editId) {
+                    showStatus('Maximum programs reached (4)', 'red');
+                    return;
+                }
+            }
+
+            const params = new URLSearchParams({
+                id: editId,
+                name: name,
+                type: type,
+                days: daysValue,
+                hour: hour,
+                min: minute,
+                en: enabled ? 1 : 0
+            });
+
+            steps.forEach((step, idx) => {
+                params.append(`s${idx + 1}z`, step.zone);
+                params.append(`s${idx + 1}d`, step.duration);
+            });
+
+            try {
+                const response = await fetch(`/api/programs/save?${params}`);
+                if (response.ok) {
+                    showStatus('Program saved!', 'green');
+                    hideForm();
+                    await loadPrograms();
+                } else {
+                    showStatus('Failed to save program', 'red');
+                }
+            } catch (error) {
+                console.error('Error saving program:', error);
+                showStatus('Error saving program', 'red');
+            }
+        }
+
+        async function deleteProgram(id) {
+            if (!confirm('Delete this program?')) return;
+            try {
+                const response = await fetch(`/api/programs/delete?id=${id}`);
+                if (response.ok) {
+                    showStatus('Program deleted', 'green');
+                    await loadPrograms();
+                } else {
+                    showStatus('Failed to delete program', 'red');
+                }
+            } catch (error) {
+                console.error('Error deleting program:', error);
+                showStatus('Error deleting program', 'red');
+            }
+        }
+
+        async function runProgram(id) {
+            try {
+                const response = await fetch(`/api/programs/run?id=${id}`);
+                if (response.ok) {
+                    showStatus('Program started!', 'green');
+                } else {
+                    showStatus('Failed to start program', 'red');
+                }
+            } catch (error) {
+                console.error('Error running program:', error);
+                showStatus('Error running program', 'red');
+            }
+        }
+
+        function showStatus(message, color) {
+            const el = document.getElementById('status-message');
+            const text = document.getElementById('status-text');
+            text.textContent = message;
+
+            el.className = `border rounded-xl p-4 mb-6 ${
+                color === 'green'
+                    ? 'bg-green-500/20 border-green-500/50'
+                    : 'bg-red-500/20 border-red-500/50'
+            }`;
+            text.className = `text-center font-medium ${
+                color === 'green' ? 'text-green-200' : 'text-red-200'
+            }`;
+
+            el.classList.remove('hidden');
+            setTimeout(() => el.classList.add('hidden'), 3000);
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadZones();
+            await loadPrograms();
+        });
+    </script>
+</body>
+</html>

@@ -100,6 +100,11 @@ static void config_set_defaults(void) {
         g_config.schedules[i].enabled = 0;
     }
 
+    // Default programs (all empty/disabled)
+    for (int i = 0; i < MAX_PROGRAMS; i++) {
+        memset(&g_config.programs[i], 0, sizeof(program_config_t));
+    }
+
     // Boot statistics start at 0
     g_config.boot_count = 0;
     g_config.watchdog_reset_count = 0;
@@ -161,9 +166,34 @@ void config_init(void) {
 
     // Read configuration from flash
     const sprinkler_config_t* flash_config = (const sprinkler_config_t*)CONFIG_FLASH_ADDR;
+    const uint8_t* flash_bytes = (const uint8_t*)CONFIG_FLASH_ADDR;
 
-    // Verify and load
-    if (config_verify(flash_config)) {
+    // Check for v4→v5 migration: v4 has crc32 where v5 has programs[0]
+    uint16_t flash_magic = *(const uint16_t*)flash_bytes;
+    uint16_t flash_version = *(const uint16_t*)(flash_bytes + 2);
+
+    if (flash_magic == CONFIG_MAGIC && flash_version == 4) {
+        printf("Config: Migrating v4 → v5...\n");
+        // v4 structure size: everything up to and including watchdog_reset_count, plus crc32
+        // The crc32 in v4 sits right after watchdog_reset_count (where programs[] now starts)
+        size_t v4_data_size = offsetof(sprinkler_config_t, programs);
+        uint32_t v4_crc_stored = *(const uint32_t*)(flash_bytes + v4_data_size);
+        uint32_t v4_crc_calc = crc32_calculate(flash_bytes, v4_data_size);
+
+        if (v4_crc_stored == v4_crc_calc) {
+            printf("Config: v4 CRC valid, migrating\n");
+            memset(&g_config, 0, sizeof(g_config));
+            memcpy(&g_config, flash_bytes, v4_data_size);
+            g_config.version = CONFIG_VERSION;
+            // programs already zeroed by memset
+            g_config.crc32 = config_calculate_crc(&g_config);
+            config_save();
+            printf("Config: Migration complete\n");
+        } else {
+            printf("Config: v4 CRC mismatch, using defaults\n");
+            config_set_defaults();
+        }
+    } else if (config_verify(flash_config)) {
         printf("Config: Loaded valid configuration from flash\n");
         memcpy(&g_config, flash_config, sizeof(sprinkler_config_t));
     } else {
@@ -339,6 +369,36 @@ void config_set_schedule_last_run(uint8_t schedule_id, uint16_t day_of_year, uin
     }
     g_config.schedules[schedule_id - 1].last_run_day = day_of_year;
     g_config.schedules[schedule_id - 1].last_run_year = year;
+}
+
+// Program configuration
+void config_set_program(uint8_t program_id, const program_config_t* program) {
+    if (program_id < 1 || program_id > MAX_PROGRAMS || !program) {
+        return;
+    }
+    memcpy(&g_config.programs[program_id - 1], program, sizeof(program_config_t));
+}
+
+const program_config_t* config_get_program(uint8_t program_id) {
+    if (program_id < 1 || program_id > MAX_PROGRAMS) {
+        return NULL;
+    }
+    return &g_config.programs[program_id - 1];
+}
+
+void config_clear_program(uint8_t program_id) {
+    if (program_id < 1 || program_id > MAX_PROGRAMS) {
+        return;
+    }
+    memset(&g_config.programs[program_id - 1], 0, sizeof(program_config_t));
+}
+
+void config_set_program_last_run(uint8_t program_id, uint16_t day_of_year, uint16_t year) {
+    if (program_id < 1 || program_id > MAX_PROGRAMS) {
+        return;
+    }
+    g_config.programs[program_id - 1].last_run_day = day_of_year;
+    g_config.programs[program_id - 1].last_run_year = year;
 }
 
 // Boot statistics
