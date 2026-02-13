@@ -105,11 +105,9 @@
 #define SNTP_MAX_SERVERS 2
 #define SNTP_UPDATE_DELAY 3600000  // Update every hour (in ms)
 
-// Set system time when NTP response is received
+// Set system time when NTP response is received (routes through DS3231 sync)
 #include <sys/time.h>
-#define SNTP_SET_SYSTEM_TIME(sec) do { \
-    struct timeval tv = { .tv_sec = sec, .tv_usec = 0 }; \
-    settimeofday(&tv, NULL); \
-} while(0)
+extern void ds3231_sync_from_ntp(uint32_t ntp_seconds);
+#define SNTP_SET_SYSTEM_TIME(sec) ds3231_sync_from_ntp(sec)
 
 #endif

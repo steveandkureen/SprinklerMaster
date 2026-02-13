@@ -6,6 +6,7 @@
 #include "lcd_display.h"
 #include "zones.h"
 #include "scheduler.h"
+#include "ds3231.h"
 #include "lwip/apps/httpd.h"
 #include "lwip/apps/sntp.h"
 #include "lwip/ip4_addr.h"
@@ -296,7 +297,9 @@ static const char *ssi_tags[] = {
     // Remaining minutes for active zone
     "remain",
     // Server time (from NTP)
-    "stime"
+    "stime",
+    // DS3231 RTC time (UTC)
+    "rtctime"
 };
 
 // SSI handler
@@ -376,6 +379,9 @@ static u16_t ssi_handler(int index, char *insert, int insertlen) {
             printed = snprintf(insert, insertlen, "Syncing...");
         }
     } break;
+    case 32: // rtctime - DS3231 RTC time (UTC)
+        printed = ds3231_get_time_str(insert, insertlen);
+        break;
     default:
         // Zone data: indices 4-27 (8 zones * 3 fields each)
         if (index >= 4 && index < 28) {

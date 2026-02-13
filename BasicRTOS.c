@@ -11,6 +11,7 @@
 #include "src/scheduler.h"
 #include "src/zones.h"
 #include "src/lcd_display.h"
+#include "src/ds3231.h"
 #include <pico/types.h>
 #include <stdio.h>
 
@@ -127,6 +128,13 @@ int main() {
 
     // Initialize DHT22 sensor
     dht_init();
+
+    // Initialize DS3231 RTC (sets system clock from battery-backed RTC)
+    if (ds3231_init()) {
+        printf("RTC: System clock set from DS3231\n");
+    } else {
+        printf("RTC: DS3231 not available, will wait for NTP\n");
+    }
 
     // Initialize network (WiFi, NTP, HTTP server)
     printf("Initializing network...\n");

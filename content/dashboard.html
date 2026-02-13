@@ -23,6 +23,7 @@
                     </div>
                     <p id="current-time" class="text-purple-300 text-sm"></p>
                     <p id="server-time" class="text-purple-400 text-xs"></p>
+                    <p id="rtc-time" class="text-purple-400 text-xs"></p>
                 </div>
             </div>
         </div>
@@ -326,13 +327,15 @@
             document.getElementById('current-time').textContent = now.toLocaleDateString('en-US', options);
         }
 
-        // Update server time (from NTP)
+        // Update server time (from NTP) and RTC time
         async function updateServerTime() {
             try {
                 const data = await API.getServerTime();
                 document.getElementById('server-time').textContent = `Server: ${data.time}`;
+                document.getElementById('rtc-time').textContent = `RTC: ${data.rtc}`;
             } catch (error) {
                 document.getElementById('server-time').textContent = 'Server: --';
+                document.getElementById('rtc-time').textContent = 'RTC: --';
             }
         }
 

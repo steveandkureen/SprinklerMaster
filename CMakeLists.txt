@@ -64,6 +64,7 @@ add_executable(BasicRTOS
       src/scheduler.c
       src/lcd_display.c
       src/fault_tolerance.c
+      src/ds3231.c
       lcd.c)
 
 
