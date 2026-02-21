@@ -6,7 +6,7 @@
     <title>SprinklerMaster - Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 min-h-screen p-4">
+<body class="bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900 min-h-screen p-4">
     <div class="max-w-7xl mx-auto">
 
         <!-- Header -->
@@ -14,16 +14,16 @@
             <div class="flex flex-col md:flex-row md:items-center md:justify-between">
                 <div>
                     <h1 class="text-4xl font-bold text-white mb-2">SprinklerMaster</h1>
-                    <p class="text-purple-200">Automated Irrigation Control</p>
+                    <p class="text-emerald-200">Automated Irrigation Control</p>
                 </div>
                 <div class="mt-4 md:mt-0 flex flex-col items-start md:items-end gap-2">
                     <div id="system-status" class="flex items-center gap-2 bg-green-500/20 border border-green-500/50 rounded-full px-4 py-2">
                         <div class="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
                         <span class="text-green-200 font-medium">System Online</span>
                     </div>
-                    <p id="current-time" class="text-purple-300 text-sm"></p>
-                    <p id="server-time" class="text-purple-400 text-xs"></p>
-                    <p id="rtc-time" class="text-purple-400 text-xs"></p>
+                    <p id="current-time" class="text-emerald-300 text-sm"></p>
+                    <p id="server-time" class="text-emerald-400 text-xs"></p>
+                    <p id="rtc-time" class="text-emerald-400 text-xs"></p>
                 </div>
             </div>
         </div>
@@ -35,9 +35,9 @@
                 <div class="bg-white/5 rounded-xl p-6 border border-white/10">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-purple-200 text-sm mb-1">Temperature</p>
+                            <p class="text-emerald-200 text-sm mb-1">Temperature</p>
                             <p class="text-5xl font-bold text-white">
-                                <span id="temperature">--</span><span class="text-2xl text-purple-300">°F</span>
+                                <span id="temperature">--</span><span class="text-2xl text-emerald-300">°F</span>
                             </p>
                         </div>
                         <div class="text-6xl">🌡️</div>
@@ -46,16 +46,16 @@
                 <div class="bg-white/5 rounded-xl p-6 border border-white/10">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-purple-200 text-sm mb-1">Humidity</p>
+                            <p class="text-emerald-200 text-sm mb-1">Humidity</p>
                             <p class="text-5xl font-bold text-white">
-                                <span id="humidity">--</span><span class="text-2xl text-purple-300">%</span>
+                                <span id="humidity">--</span><span class="text-2xl text-emerald-300">%</span>
                             </p>
                         </div>
                         <div class="text-6xl">💧</div>
                     </div>
                 </div>
             </div>
-            <p id="sensor-update" class="text-purple-300 text-sm mt-4 text-center">Last updated: --</p>
+            <p id="sensor-update" class="text-emerald-300 text-sm mt-4 text-center">Last updated: --</p>
         </div>
 
         <!-- Irrigation Zones -->
@@ -70,13 +70,13 @@
         <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 mt-6 border border-white/20">
             <h2 class="text-2xl font-semibold text-white mb-4">Quick Actions</h2>
             <div class="flex flex-wrap gap-3 items-center">
-                <button onclick="openManualControl()" class="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/50 text-purple-100 px-6 py-3 rounded-lg font-semibold transition-all">
+                <button onclick="openManualControl()" class="bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-100 px-6 py-3 rounded-lg font-semibold transition-all">
                     Manual Control
                 </button>
-                <a href="/schedules.shtml" class="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/50 text-purple-100 px-6 py-3 rounded-lg font-semibold transition-all inline-block">
+                <a href="/schedules.shtml" class="bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-100 px-6 py-3 rounded-lg font-semibold transition-all inline-block">
                     Schedule Manager
                 </a>
-                <a href="/zones.shtml" class="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/50 text-purple-100 px-6 py-3 rounded-lg font-semibold transition-all inline-block">
+                <a href="/zones.shtml" class="bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-100 px-6 py-3 rounded-lg font-semibold transition-all inline-block">
                     Zone Settings
                 </a>
                 <button onclick="stopAllZones()" class="ml-auto bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-100 px-6 py-3 rounded-lg font-semibold transition-all">
@@ -93,7 +93,7 @@
                     <button onclick="closeManualControl()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
                 </div>
                 <div class="mb-4">
-                    <label class="text-purple-200 text-sm">Run Duration</label>
+                    <label class="text-emerald-200 text-sm">Run Duration</label>
                     <select id="manual-duration" class="w-full mt-1 bg-white/10 border border-white/20 text-white px-3 py-2 rounded-lg">
                         <option value="5">5 minutes</option>
                         <option value="10" selected>10 minutes</option>
@@ -117,7 +117,7 @@
 
         <!-- Footer -->
         <div class="text-center mt-8 pb-8">
-            <p class="text-purple-300 text-sm">
+            <p class="text-emerald-300 text-sm">
                 Powered by FreeRTOS • lwIP • Pico SDK 2.2.0 • Raspberry Pi Pico 2W
             </p>
         </div>
@@ -371,10 +371,10 @@
                     bg: 'bg-white/5',
                     border: 'border-white/10',
                     hover: 'hover:bg-white/10',
-                    text: 'text-purple-200',
-                    badge: 'bg-white/5 text-purple-200',
+                    text: 'text-emerald-200',
+                    badge: 'bg-white/5 text-emerald-200',
                     dot: 'bg-gray-400',
-                    label: 'text-purple-300'
+                    label: 'text-emerald-300'
                 }
             };
 
@@ -398,7 +398,7 @@
 
             // Next run info
             const nextRunContent = nextRun.text === 'No schedule'
-                ? `<p class="text-purple-400 text-xs">No schedule</p>`
+                ? `<p class="text-emerald-400 text-xs">No schedule</p>`
                 : `<div class="text-xs ${colors.text}">
                        <p class="font-semibold">Next Run:</p>
                        <p>${nextRun.text}${nextRun.duration ? ` (${nextRun.duration} min)` : ''}</p>
@@ -452,7 +452,7 @@
             const enabledZones = allZones.filter(z => z.enabled);
 
             if (enabledZones.length === 0) {
-                container.innerHTML = '<p class="text-purple-300 text-center py-4">No zones enabled</p>';
+                container.innerHTML = '<p class="text-emerald-300 text-center py-4">No zones enabled</p>';
                 return;
             }
 
@@ -464,7 +464,7 @@
                     <div class="flex items-center justify-between bg-white/5 rounded-lg p-3 border border-white/10">
                         <div>
                             <span class="text-white font-semibold">Zone ${zone.id}</span>
-                            <span class="text-purple-300 ml-2">${zone.name}</span>
+                            <span class="text-emerald-300 ml-2">${zone.name}</span>
                             ${statusText}
                         </div>
                         ${isActive
@@ -534,8 +534,8 @@
                 if (enabledZones.length === 0) {
                     container.innerHTML = `
                         <div class="col-span-full text-center py-8">
-                            <p class="text-purple-300">No zones enabled.</p>
-                            <a href="/zones.shtml" class="text-purple-400 hover:text-purple-200 underline">Configure zones</a>
+                            <p class="text-emerald-300">No zones enabled.</p>
+                            <a href="/zones.shtml" class="text-emerald-400 hover:text-emerald-200 underline">Configure zones</a>
                         </div>
                     `;
                 } else {

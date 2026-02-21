@@ -6,7 +6,7 @@
     <title>SprinklerMaster - Schedule Manager</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 min-h-screen p-4">
+<body class="bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900 min-h-screen p-4">
     <div class="max-w-4xl mx-auto">
 
         <!-- Header -->
@@ -14,9 +14,9 @@
             <div class="flex items-center justify-between">
                 <div>
                     <h1 class="text-3xl font-bold text-white mb-1">Schedule Manager</h1>
-                    <p class="text-purple-200">Create and manage irrigation schedules</p>
+                    <p class="text-emerald-200">Create and manage irrigation schedules</p>
                 </div>
-                <a href="/dashboard.html" class="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/50 text-purple-100 px-4 py-2 rounded-lg font-semibold transition-all">
+                <a href="/dashboard.html" class="bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-100 px-4 py-2 rounded-lg font-semibold transition-all">
                     Back to Dashboard
                 </a>
             </div>
@@ -42,16 +42,16 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <!-- Zone Selection -->
                 <div>
-                    <label class="text-purple-200 text-sm mb-1 block">Zone</label>
-                    <select id="sched-zone" class="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500">
+                    <label class="text-emerald-200 text-sm mb-1 block">Zone</label>
+                    <select id="sched-zone" class="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500">
                         <!-- Populated by JS -->
                     </select>
                 </div>
 
                 <!-- Schedule Type -->
                 <div>
-                    <label class="text-purple-200 text-sm mb-1 block">Schedule Type</label>
-                    <select id="sched-type" onchange="toggleScheduleType()" class="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500">
+                    <label class="text-emerald-200 text-sm mb-1 block">Schedule Type</label>
+                    <select id="sched-type" onchange="toggleScheduleType()" class="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500">
                         <option value="0">Weekly (specific days)</option>
                         <option value="1">Interval (every N days)</option>
                     </select>
@@ -59,16 +59,16 @@
 
                 <!-- Duration -->
                 <div>
-                    <label class="text-purple-200 text-sm mb-1 block">Duration (minutes)</label>
+                    <label class="text-emerald-200 text-sm mb-1 block">Duration (minutes)</label>
                     <input type="number" id="sched-duration" min="1" max="240" value="30"
-                           class="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500">
+                           class="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500">
                 </div>
 
                 <!-- Start Time -->
                 <div>
-                    <label class="text-purple-200 text-sm mb-1 block">Start Time</label>
+                    <label class="text-emerald-200 text-sm mb-1 block">Start Time</label>
                     <input type="time" id="sched-time" value="06:00"
-                           class="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500">
+                           class="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500">
                 </div>
 
                 <!-- Enabled -->
@@ -77,54 +77,54 @@
                         <input type="checkbox" id="sched-enabled" checked class="sr-only peer">
                         <div class="w-11 h-6 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
                     </label>
-                    <span class="text-purple-200">Enabled</span>
+                    <span class="text-emerald-200">Enabled</span>
                 </div>
             </div>
 
             <!-- Days of Week (for weekly type) -->
             <div id="weekly-options" class="mt-4">
-                <label class="text-purple-200 text-sm mb-2 block">Days of Week</label>
+                <label class="text-emerald-200 text-sm mb-2 block">Days of Week</label>
                 <div class="flex flex-wrap gap-2">
                     <label class="cursor-pointer">
                         <input type="checkbox" id="day-0" class="sr-only peer">
-                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-purple-200 peer-checked:bg-purple-500 peer-checked:text-white peer-checked:border-purple-500 transition-all inline-block">Sun</span>
+                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-emerald-200 peer-checked:bg-emerald-500 peer-checked:text-white peer-checked:border-emerald-500 transition-all inline-block">Sun</span>
                     </label>
                     <label class="cursor-pointer">
                         <input type="checkbox" id="day-1" class="sr-only peer">
-                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-purple-200 peer-checked:bg-purple-500 peer-checked:text-white peer-checked:border-purple-500 transition-all inline-block">Mon</span>
+                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-emerald-200 peer-checked:bg-emerald-500 peer-checked:text-white peer-checked:border-emerald-500 transition-all inline-block">Mon</span>
                     </label>
                     <label class="cursor-pointer">
                         <input type="checkbox" id="day-2" class="sr-only peer">
-                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-purple-200 peer-checked:bg-purple-500 peer-checked:text-white peer-checked:border-purple-500 transition-all inline-block">Tue</span>
+                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-emerald-200 peer-checked:bg-emerald-500 peer-checked:text-white peer-checked:border-emerald-500 transition-all inline-block">Tue</span>
                     </label>
                     <label class="cursor-pointer">
                         <input type="checkbox" id="day-3" class="sr-only peer">
-                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-purple-200 peer-checked:bg-purple-500 peer-checked:text-white peer-checked:border-purple-500 transition-all inline-block">Wed</span>
+                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-emerald-200 peer-checked:bg-emerald-500 peer-checked:text-white peer-checked:border-emerald-500 transition-all inline-block">Wed</span>
                     </label>
                     <label class="cursor-pointer">
                         <input type="checkbox" id="day-4" class="sr-only peer">
-                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-purple-200 peer-checked:bg-purple-500 peer-checked:text-white peer-checked:border-purple-500 transition-all inline-block">Thu</span>
+                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-emerald-200 peer-checked:bg-emerald-500 peer-checked:text-white peer-checked:border-emerald-500 transition-all inline-block">Thu</span>
                     </label>
                     <label class="cursor-pointer">
                         <input type="checkbox" id="day-5" class="sr-only peer">
-                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-purple-200 peer-checked:bg-purple-500 peer-checked:text-white peer-checked:border-purple-500 transition-all inline-block">Fri</span>
+                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-emerald-200 peer-checked:bg-emerald-500 peer-checked:text-white peer-checked:border-emerald-500 transition-all inline-block">Fri</span>
                     </label>
                     <label class="cursor-pointer">
                         <input type="checkbox" id="day-6" class="sr-only peer">
-                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-purple-200 peer-checked:bg-purple-500 peer-checked:text-white peer-checked:border-purple-500 transition-all inline-block">Sat</span>
+                        <span class="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-emerald-200 peer-checked:bg-emerald-500 peer-checked:text-white peer-checked:border-emerald-500 transition-all inline-block">Sat</span>
                     </label>
                 </div>
             </div>
 
             <!-- Interval Options (for interval type) -->
             <div id="interval-options" class="mt-4 hidden">
-                <label class="text-purple-200 text-sm mb-2 block">Run Every</label>
+                <label class="text-emerald-200 text-sm mb-2 block">Run Every</label>
                 <div class="flex items-center gap-3">
                     <input type="number" id="sched-interval" min="1" max="30" value="2"
-                           class="w-24 bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500">
-                    <span class="text-purple-200">days</span>
+                           class="w-24 bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500">
+                    <span class="text-emerald-200">days</span>
                 </div>
-                <p class="text-purple-400 text-xs mt-2">Schedule will run at the specified time every N days</p>
+                <p class="text-emerald-400 text-xs mt-2">Schedule will run at the specified time every N days</p>
             </div>
 
             <!-- Form Buttons -->
@@ -145,14 +145,14 @@
                 <!-- Populated by JS -->
             </div>
             <div id="no-schedules" class="hidden text-center py-8">
-                <p class="text-purple-300">No schedules configured.</p>
-                <p class="text-purple-400 text-sm mt-1">Click "Add New Schedule" to create one.</p>
+                <p class="text-emerald-300">No schedules configured.</p>
+                <p class="text-emerald-400 text-sm mt-1">Click "Add New Schedule" to create one.</p>
             </div>
         </div>
 
         <!-- Footer -->
         <div class="text-center mt-8 pb-8">
-            <p class="text-purple-300 text-sm">
+            <p class="text-emerald-300 text-sm">
                 Powered by FreeRTOS - lwIP - Pico SDK 2.2.0
             </p>
         </div>
@@ -225,16 +225,16 @@
                         <div class="flex-1">
                             <div class="flex items-center gap-2 mb-1">
                                 <h3 class="text-lg font-semibold text-white">${zoneName}</h3>
-                                <span class="text-xs bg-purple-500/30 text-purple-200 px-2 py-0.5 rounded">${typeLabel}</span>
-                                ${sched.enabled ? '' : '<span class="text-xs bg-white/20 text-purple-200 px-2 py-0.5 rounded">Disabled</span>'}
+                                <span class="text-xs bg-emerald-500/30 text-emerald-200 px-2 py-0.5 rounded">${typeLabel}</span>
+                                ${sched.enabled ? '' : '<span class="text-xs bg-white/20 text-emerald-200 px-2 py-0.5 rounded">Disabled</span>'}
                             </div>
-                            <p class="text-purple-200 text-sm">
+                            <p class="text-emerald-200 text-sm">
                                 ${timeStr} - ${sched.duration} min
                             </p>
-                            <p class="text-purple-300 text-sm">${daysStr}</p>
+                            <p class="text-emerald-300 text-sm">${daysStr}</p>
                         </div>
                         <div class="flex gap-2">
-                            <button onclick="editSchedule(${sched.id})" class="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/50 text-purple-100 px-4 py-2 rounded-lg text-sm transition-all">
+                            <button onclick="editSchedule(${sched.id})" class="bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-100 px-4 py-2 rounded-lg text-sm transition-all">
                                 Edit
                             </button>
                             <button onclick="deleteSchedule(${sched.id})" class="bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-100 px-4 py-2 rounded-lg text-sm transition-all">
