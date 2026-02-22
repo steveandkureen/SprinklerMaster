@@ -8,6 +8,7 @@
 #include "scheduler.h"
 #include "ds3231.h"
 #include "lwip/apps/httpd.h"
+#include "lwip/apps/mdns.h"
 #include "lwip/apps/sntp.h"
 #include "lwip/ip4_addr.h"
 #include "pico/cyw43_arch.h"
@@ -85,7 +86,7 @@ static const char *cgi_handler_default(int index, int numParams, char *params[],
                                        char *value[]) {
 
     printf("cgi called\n");
-    return "/welcome.shtml";
+    return "/dashboard.html";
 }
 
 static const char *cgi_handler_sensors(int index, int numParams, char *params[],
@@ -664,6 +665,11 @@ bool network_init(void) {
     http_set_cgi_handlers(cgi_handlers, LWIP_ARRAYSIZE(cgi_handlers));
     http_set_ssi_handler(ssi_handler, ssi_tags, LWIP_ARRAYSIZE(ssi_tags));
     printf("Network: HTTP server running on port 80\n");
+
+    // Initialize mDNS responder (sprinkler.local)
+    mdns_resp_init();
+    mdns_resp_add_netif(netif_default, "sprinkler");
+    printf("Network: mDNS responder started (sprinkler.local)\n");
 
     printf("Network: Initialization complete\n");
     lcd_display_startup_complete();

@@ -134,7 +134,7 @@
         <!-- Footer -->
         <div class="text-center mt-8 pb-8">
             <p class="text-emerald-300 text-sm">
-                Powered by FreeRTOS • lwIP • Pico SDK 2.2.0 • Raspberry Pi Pico 2W
+                Powered by lwIP • Pico SDK 2.2.0 • Raspberry Pi Pico 2W
             </p>
         </div>
 
@@ -322,25 +322,58 @@
             }
         }
 
+        // Get next program-based runs for a zone
+        function getProgramNextRunsForZone(zoneId) {
+            const results = [];
+            for (const prog of programsList) {
+                if (!prog.enabled) continue;
+                const steps = prog.steps || [];
+                let offsetMinutes = 0;
+                for (const step of steps) {
+                    if (step.zone === zoneId) {
+                        const runTime = getNextRunTime(prog);
+                        if (runTime.date) {
+                            const adjustedDate = new Date(runTime.date.getTime() + offsetMinutes * 60000);
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            const adjDay = new Date(adjustedDate);
+                            adjDay.setHours(0, 0, 0, 0);
+                            const daysFromNow = Math.round((adjDay - today) / (1000 * 60 * 60 * 24));
+                            const adjustedText = formatNextRun(adjustedDate, daysFromNow < 0 ? 0 : daysFromNow);
+                            results.push({
+                                text: adjustedText,
+                                date: adjustedDate,
+                                duration: step.duration,
+                                programName: prog.name
+                            });
+                        }
+                        break;
+                    }
+                    offsetMinutes += step.duration;
+                }
+            }
+            return results;
+        }
+
         // Get next scheduled run for a zone
         function getZoneNextRun(zoneId) {
             const zoneSchedules = schedules
                 .filter(s => s.zone === zoneId && s.enabled)
-                .map(s => ({ schedule: s, ...getNextRunTime(s) }))
-                .filter(s => s.date !== null || s.schedule.type === SCHEDULE_TYPE_INTERVAL)
-                .sort((a, b) => {
-                    if (a.date && b.date) return a.date - b.date;
-                    if (a.date) return -1;
-                    if (b.date) return 1;
-                    return 0;
-                });
+                .map(s => ({ ...getNextRunTime(s), duration: s.duration }))
+                .filter(s => s.date !== null);
 
-            if (zoneSchedules.length === 0) {
+            const programRuns = getProgramNextRunsForZone(zoneId);
+
+            const allRuns = [...zoneSchedules, ...programRuns]
+                .filter(r => r.date !== null)
+                .sort((a, b) => a.date - b.date);
+
+            if (allRuns.length === 0) {
                 return { text: 'No schedule', duration: null };
             }
 
-            const next = zoneSchedules[0];
-            return { text: next.text, duration: next.schedule.duration };
+            const next = allRuns[0];
+            return { text: next.text, duration: next.duration, programName: next.programName || null };
         }
 
         // Update current time (browser time)
@@ -434,11 +467,17 @@
             }
 
             // Next run info
+            let nextRunDetail = nextRun.text;
+            if (nextRun.duration) {
+                nextRunDetail += nextRun.programName
+                    ? ` (${nextRun.duration} min, ${nextRun.programName})`
+                    : ` (${nextRun.duration} min)`;
+            }
             const nextRunContent = nextRun.text === 'No schedule'
                 ? `<p class="text-emerald-400 text-xs">No schedule</p>`
                 : `<div class="text-xs ${colors.text}">
                        <p class="font-semibold">Next Run:</p>
-                       <p>${nextRun.text}${nextRun.duration ? ` (${nextRun.duration} min)` : ''}</p>
+                       <p>${nextRunDetail}</p>
                    </div>`;
 
             return `

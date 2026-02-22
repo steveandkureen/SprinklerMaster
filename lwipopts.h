@@ -12,7 +12,7 @@
 // Memory settings
 #define MEM_LIBC_MALLOC 0
 #define MEM_ALIGNMENT 4
-#define MEM_SIZE 4000
+#define MEM_SIZE 32768
 #define MEMP_NUM_TCP_SEG 32
 #define MEMP_NUM_ARP_QUEUE 10
 #define PBUF_POOL_SIZE 24
@@ -29,6 +29,9 @@
 #define LWIP_UDP 1
 #define LWIP_DNS 1
 #define LWIP_TCP_KEEPALIVE 1
+#define LWIP_IGMP 1
+#define LWIP_MDNS_RESPONDER 1
+#define LWIP_NUM_NETIF_CLIENT_DATA 1
 
 // TCP settings
 #define TCP_WND (8 * TCP_MSS)
