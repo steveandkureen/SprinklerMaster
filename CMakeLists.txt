@@ -53,9 +53,16 @@ pico_set_lwip_httpd_content(pico_httpd_content INTERFACE
       ${CMAKE_CURRENT_LIST_DIR}/content/api/success.json
       ${CMAKE_CURRENT_LIST_DIR}/content/api/error.json
       ${CMAKE_CURRENT_LIST_DIR}/content/api/time.json
+      ${CMAKE_CURRENT_LIST_DIR}/content/setup.html
+      ${CMAKE_CURRENT_LIST_DIR}/content/settings.shtml
+      ${CMAKE_CURRENT_LIST_DIR}/content/history.shtml
+      ${CMAKE_CURRENT_LIST_DIR}/content/api/history.json
       )
 
 # Add executable. Default name is the project name, version 0.1
+
+# DHCP server for AP mode (from btstack 3rd-party)
+set(DHCP_SERVER_DIR ${USERHOME}/.pico-sdk/sdk/${sdkVersion}/lib/btstack/3rd-party/lwip/dhcp-server)
 
 add_executable(BasicRTOS
       BasicRTOS.c
@@ -67,7 +74,9 @@ add_executable(BasicRTOS
       src/lcd_display.c
       src/fault_tolerance.c
       src/ds3231.c
-      lcd.c)
+      src/history.c
+      lcd.c
+      ${DHCP_SERVER_DIR}/dhserver.c)
 
 
 pico_set_program_name(BasicRTOS "BasicRTOS")
@@ -94,6 +103,7 @@ target_link_libraries(BasicRTOS PRIVATE
 target_include_directories(BasicRTOS PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
         include/
+        ${DHCP_SERVER_DIR}
 )
 
 # Add any user requested libraries

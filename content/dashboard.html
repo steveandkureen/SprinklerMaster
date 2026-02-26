@@ -28,6 +28,28 @@
             </div>
         </div>
 
+        <!-- Battery Warning Banner -->
+        <div id="battery-warning" class="hidden bg-red-500/20 backdrop-blur-lg rounded-2xl shadow-2xl p-4 mb-6 border border-red-500/50">
+            <div class="flex items-center gap-3">
+                <span class="text-3xl">&#9888;</span>
+                <div>
+                    <p class="text-red-100 font-bold">RTC Battery Warning</p>
+                    <p class="text-red-200 text-sm">The DS3231 backup battery may be dead or removed. The clock will lose time during power outages.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Freeze Warning Banner -->
+        <div id="freeze-warning" class="hidden bg-blue-500/20 backdrop-blur-lg rounded-2xl shadow-2xl p-4 mb-6 border border-blue-500/50">
+            <div class="flex items-center gap-3">
+                <span class="text-3xl">&#10052;</span>
+                <div>
+                    <p class="text-blue-100 font-bold">Freeze Protection Active</p>
+                    <p class="text-blue-200 text-sm">Scheduled watering suspended &mdash; temperature is at or below 35&deg;F.</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Environmental Monitoring -->
         <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 mb-6 border border-white/20">
             <h2 class="text-2xl font-semibold text-white mb-4">Environmental Data</h2>
@@ -81,6 +103,12 @@
                 </a>
                 <a href="/zones.shtml" class="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/50 text-purple-100 px-6 py-3 rounded-lg font-semibold transition-all inline-block">
                     Zone Settings
+                </a>
+                <a href="/history.shtml" class="bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/50 text-cyan-100 px-6 py-3 rounded-lg font-semibold transition-all inline-block">
+                    Watering History
+                </a>
+                <a href="/settings.shtml" class="bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-100 px-6 py-3 rounded-lg font-semibold transition-all inline-block">
+                    Settings
                 </a>
                 <button onclick="stopAllZones()" class="ml-auto bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-100 px-6 py-3 rounded-lg font-semibold transition-all">
                     Stop All
@@ -396,6 +424,12 @@
                 const data = await API.getServerTime();
                 document.getElementById('server-time').textContent = `Server: ${data.time}`;
                 document.getElementById('rtc-time').textContent = `RTC: ${data.rtc}`;
+                const warn = document.getElementById('battery-warning');
+                if (data.batteryOk === false) {
+                    warn.classList.remove('hidden');
+                } else {
+                    warn.classList.add('hidden');
+                }
             } catch (error) {
                 document.getElementById('server-time').textContent = 'Server: --';
                 document.getElementById('rtc-time').textContent = 'RTC: --';
@@ -409,6 +443,12 @@
                 document.getElementById('temperature').textContent = data.temperature;
                 document.getElementById('humidity').textContent = data.humidity;
                 document.getElementById('sensor-update').textContent = `Last updated: ${data.lastUpdate}`;
+                const freezeWarn = document.getElementById('freeze-warning');
+                if (data.freeze === true) {
+                    freezeWarn.classList.remove('hidden');
+                } else {
+                    freezeWarn.classList.add('hidden');
+                }
             } catch (error) {
                 console.error('Error loading sensor data:', error);
             }

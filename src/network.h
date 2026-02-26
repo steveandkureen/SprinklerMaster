@@ -5,11 +5,18 @@
 #include <stdint.h>
 
 // Initialize network (WiFi, NTP, HTTP server)
+// If no WiFi credentials in flash, starts in AP mode for setup
 bool network_init(void);
 
 // Check WiFi connection and reconnect if needed
 // Call periodically from main loop (~30 seconds)
 void network_check_wifi(void);
+
+// Returns true if device is in AP setup mode (no WiFi credentials configured)
+bool network_is_ap_mode(void);
+
+// Returns true if a reboot has been requested via the web UI
+bool network_reboot_pending(void);
 
 // Inter-core command protocol (Core 1 → Core 0)
 // Bits 31-24: command, 23-16: zone_id (if applicable), 15-0: duration (if applicable)

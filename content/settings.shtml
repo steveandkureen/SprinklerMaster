@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SprinklerMaster - Settings</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-amber-900 to-slate-900 min-h-screen p-4">
+    <div class="max-w-2xl mx-auto">
+
+        <!-- Header -->
+        <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 mb-6 border border-white/20">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-white">Settings</h1>
+                    <p class="text-amber-200">System Configuration</p>
+                </div>
+                <a href="/dashboard.html" class="bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-100 px-4 py-2 rounded-lg font-semibold transition-all">
+                    Back to Dashboard
+                </a>
+            </div>
+        </div>
+
+        <!-- Status Message -->
+        <div id="status-msg" class="hidden mb-4 rounded-xl p-4 border text-center font-semibold"></div>
+
+        <!-- WiFi Configuration -->
+        <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 mb-6 border border-white/20">
+            <h2 class="text-2xl font-semibold text-white mb-2">WiFi Configuration</h2>
+            <p class="text-amber-200 text-sm mb-4">Current network: <span class="text-white font-semibold"><!--#wfssid--></span></p>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="text-amber-200 text-sm block mb-1">New SSID</label>
+                    <input id="wifi-ssid" type="text" maxlength="32" autocomplete="off" placeholder="WiFi network name"
+                           class="w-full bg-white/10 border border-white/20 text-white px-4 py-2 rounded-lg focus:outline-none focus:border-amber-400">
+                </div>
+                <div>
+                    <label class="text-amber-200 text-sm block mb-1">New Password</label>
+                    <input id="wifi-pass" type="password" maxlength="64" placeholder="WiFi password"
+                           class="w-full bg-white/10 border border-white/20 text-white px-4 py-2 rounded-lg focus:outline-none focus:border-amber-400">
+                </div>
+                <button onclick="saveWifi()" id="btn-save"
+                        class="w-full bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-100 px-6 py-3 rounded-lg font-semibold transition-all">
+                    Save WiFi Credentials & Reboot
+                </button>
+            </div>
+        </div>
+
+        <!-- Timezone Configuration -->
+        <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 mb-6 border border-white/20">
+            <h2 class="text-2xl font-semibold text-white mb-2">Timezone</h2>
+            <p class="text-amber-200 text-sm mb-4">Current: <span class="text-white font-semibold" id="tz-current"><!--#tz--></span></p>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="text-amber-200 text-sm block mb-1">Select Timezone</label>
+                    <select id="tz-select"
+                            class="w-full bg-white/10 border border-white/20 text-white px-4 py-2 rounded-lg focus:outline-none focus:border-amber-400">
+                        <option value="EST5EDT,M3.2.0,M11.1.0">Eastern (EST/EDT)</option>
+                        <option value="CST6CDT,M3.2.0,M11.1.0">Central (CST/CDT)</option>
+                        <option value="MST7MDT,M3.2.0,M11.1.0">Mountain (MST/MDT)</option>
+                        <option value="MST7">Arizona (MST, no DST)</option>
+                        <option value="PST8PDT,M3.2.0,M11.1.0">Pacific (PST/PDT)</option>
+                        <option value="AKST9AKDT,M3.2.0,M11.1.0">Alaska (AKST/AKDT)</option>
+                        <option value="HST10">Hawaii (HST, no DST)</option>
+                        <option value="UTC0">UTC</option>
+                    </select>
+                </div>
+                <button onclick="saveTimezone()" id="btn-tz"
+                        class="w-full bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-100 px-6 py-3 rounded-lg font-semibold transition-all">
+                    Save Timezone
+                </button>
+            </div>
+        </div>
+
+        <!-- Clear WiFi / Enter Setup Mode -->
+        <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 mb-6 border border-white/20">
+            <h2 class="text-2xl font-semibold text-white mb-2">Setup Mode</h2>
+            <p class="text-amber-200 text-sm mb-4">Clear WiFi credentials and reboot into AP setup mode. You'll need to connect to the "SprinklerSetup" network to reconfigure.</p>
+            <button onclick="clearWifi()" id="btn-clear"
+                    class="w-full bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-100 px-6 py-3 rounded-lg font-semibold transition-all">
+                Clear WiFi & Enter Setup Mode
+            </button>
+        </div>
+
+        <!-- Reboot -->
+        <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 mb-6 border border-white/20">
+            <h2 class="text-2xl font-semibold text-white mb-2">System</h2>
+            <button onclick="doReboot()"
+                    class="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-6 py-3 rounded-lg font-semibold transition-all">
+                Reboot Device
+            </button>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center mt-8 pb-8">
+            <p class="text-amber-300 text-sm">
+                Powered by lwIP &bull; Pico SDK 2.2.0 &bull; Raspberry Pi Pico 2W
+            </p>
+        </div>
+    </div>
+
+    <script>
+        function showMsg(text, isError) {
+            var el = document.getElementById('status-msg');
+            el.textContent = text;
+            el.className = isError
+                ? 'mb-4 rounded-xl p-4 border text-center font-semibold bg-red-500/20 border-red-500/50 text-red-100'
+                : 'mb-4 rounded-xl p-4 border text-center font-semibold bg-green-500/20 border-green-500/50 text-green-100';
+        }
+
+        function apiGet(url, cb) {
+            var x = new XMLHttpRequest();
+            x.open('GET', url);
+            x.onload = function() { cb(x.status === 200, x); };
+            x.onerror = function() { cb(false, x); };
+            x.send();
+        }
+
+        function saveWifi() {
+            var ssid = document.getElementById('wifi-ssid').value.trim();
+            var pass = document.getElementById('wifi-pass').value;
+            if (!ssid) { showMsg('SSID is required', true); return; }
+
+            document.getElementById('btn-save').disabled = true;
+            document.getElementById('btn-save').textContent = 'Saving...';
+
+            apiGet('/api/wifi/save?ssid=' + encodeURIComponent(ssid) + '&pass=' + encodeURIComponent(pass), function(ok) {
+                if (ok) {
+                    showMsg('WiFi credentials saved. Rebooting in 3 seconds...', false);
+                    setTimeout(function() { apiGet('/api/wifi/reboot', function(){}); }, 3000);
+                } else {
+                    showMsg('Failed to save. Try again.', true);
+                    document.getElementById('btn-save').disabled = false;
+                    document.getElementById('btn-save').textContent = 'Save WiFi Credentials & Reboot';
+                }
+            });
+        }
+
+        function clearWifi() {
+            if (!confirm('Clear WiFi credentials and reboot into setup mode?')) return;
+
+            document.getElementById('btn-clear').disabled = true;
+            document.getElementById('btn-clear').textContent = 'Clearing...';
+
+            apiGet('/api/wifi/clear', function(ok) {
+                if (ok) {
+                    showMsg('WiFi cleared. Rebooting into setup mode...', false);
+                    setTimeout(function() { apiGet('/api/wifi/reboot', function(){}); }, 2000);
+                } else {
+                    showMsg('Failed to clear. Try again.', true);
+                    document.getElementById('btn-clear').disabled = false;
+                    document.getElementById('btn-clear').textContent = 'Clear WiFi & Enter Setup Mode';
+                }
+            });
+        }
+
+        function saveTimezone() {
+            var tz = document.getElementById('tz-select').value;
+            document.getElementById('btn-tz').disabled = true;
+            document.getElementById('btn-tz').textContent = 'Saving...';
+
+            apiGet('/api/timezone/save?tz=' + encodeURIComponent(tz), function(ok) {
+                document.getElementById('btn-tz').disabled = false;
+                document.getElementById('btn-tz').textContent = 'Save Timezone';
+                if (ok) {
+                    document.getElementById('tz-current').textContent = tz;
+                    showMsg('Timezone saved. Times will update on next refresh.', false);
+                } else {
+                    showMsg('Failed to save timezone.', true);
+                }
+            });
+        }
+
+        function doReboot() {
+            if (!confirm('Reboot the device?')) return;
+            apiGet('/api/wifi/reboot', function(ok) {
+                showMsg('Rebooting...', false);
+            });
+        }
+
+        // Pre-select current timezone in dropdown on page load
+        (function() {
+            var current = document.getElementById('tz-current').textContent.trim();
+            var sel = document.getElementById('tz-select');
+            for (var i = 0; i < sel.options.length; i++) {
+                if (sel.options[i].value === current) {
+                    sel.selectedIndex = i;
+                    return;
+                }
+            }
+        })();
+    </script>
+</body>
+</html>

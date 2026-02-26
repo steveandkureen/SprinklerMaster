@@ -1,6 +1,8 @@
 #include "scheduler.h"
 #include "config_flash.h"
+#include "dht22.h"
 #include "fault_tolerance.h"
+#include "history.h"
 #include "pico/time.h"
 #include "zones.h"
 #include <stdio.h>
@@ -18,6 +20,12 @@ typedef struct {
 } program_run_state_t;
 
 static program_run_state_t program_state = {0};
+
+// Freeze protection state
+static bool g_freeze_active = false;
+
+// Track configured duration for history logging
+static uint16_t g_run_duration_mins = 0;
 
 // NTP sync state
 static bool ntp_synced = false;
@@ -119,6 +127,7 @@ static bool start_zone_run(uint8_t zone_id, uint8_t schedule_id,
         current_status.active_schedule_id = schedule_id;
         current_status.remaining_mins = duration_mins;
         current_status.run_end_ms = now_ms + ((uint32_t)duration_mins * 60 * 1000);
+        g_run_duration_mins = duration_mins;
 
         printf("Zone %d started for %d min\n", zone_id, duration_mins);
         return true;
@@ -189,6 +198,12 @@ static void check_run_complete(void) {
 
     if (now_ms >= current_status.run_end_ms) {
         printf("Zone %d complete\n", current_status.active_zone);
+
+        // Log completed run to history
+        history_trigger_t trig = current_status.active_schedule_id > 0 ? HIST_SCHEDULE :
+                                 (program_state.active_program_id > 0 ? HIST_PROGRAM : HIST_MANUAL);
+        history_log(current_status.active_zone, trig, (int16_t)(g_run_duration_mins * 60));
+
         zone_off(current_status.active_zone);
         current_status.active_zone = 0;
         current_status.active_schedule_id = 0;
@@ -241,6 +256,12 @@ static void check_schedules(void) {
         }
 
         if (should_run) {
+            if (g_freeze_active) {
+                printf("Schedule %d: skipped (freeze protection)\n", i);
+                history_log(sched->zone_id, HIST_FREEZE_SKIP, 0);
+                config_set_schedule_last_run(i, day_of_year, year);
+                continue;
+            }
             if (start_zone_run(sched->zone_id, i, sched->duration_mins)) {
                 config_set_schedule_last_run(i, day_of_year, year);
             }
@@ -279,6 +300,12 @@ static void check_programs(void) {
         }
 
         if (should_run) {
+            if (g_freeze_active) {
+                printf("Program %d '%s': skipped (freeze protection)\n", i, prog->name);
+                history_log(1, HIST_FREEZE_SKIP, 0);  // zone 1 placeholder for program-level skip
+                config_set_program_last_run(i, day_of_year, year);
+                continue;
+            }
             printf("Program %d '%s' triggered by schedule\n", i, prog->name);
             config_set_program_last_run(i, day_of_year, year);
             scheduler_run_program(i);
@@ -320,6 +347,9 @@ void scheduler_poll(void) {
         }
     }
 
+    // Update freeze protection state
+    g_freeze_active = (g_sensor_data.valid && g_sensor_data.temperature_f <= 35);
+
     // Check if current run is complete
     check_run_complete();
 
@@ -341,6 +371,13 @@ void scheduler_stop_current(void) {
     clear_program_state();
     if (current_status.active_zone > 0) {
         printf("Scheduler: Stopping zone %d\n", current_status.active_zone);
+
+        // Log early stop with elapsed duration
+        int16_t elapsed_sec = (int16_t)((g_run_duration_mins - current_status.remaining_mins) * 60);
+        history_trigger_t trig = current_status.active_schedule_id > 0 ? HIST_SCHEDULE :
+                                 (current_status.active_program_id > 0 ? HIST_PROGRAM : HIST_MANUAL);
+        history_log(current_status.active_zone, trig, elapsed_sec);
+
         zone_off(current_status.active_zone);
         current_status.active_zone = 0;
         current_status.active_schedule_id = 0;
@@ -379,4 +416,8 @@ void scheduler_run_program(uint8_t program_id) {
 
 scheduler_status_t scheduler_get_status(void) {
     return current_status;
+}
+
+bool scheduler_is_freeze_active(void) {
+    return g_freeze_active;
 }
