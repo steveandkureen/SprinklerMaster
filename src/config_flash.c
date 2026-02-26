@@ -201,7 +201,7 @@ void config_init(void) {
         config_set_defaults();
     }
 
-    // Increment boot count (will be saved later after FreeRTOS starts)
+    // Increment boot count (will be saved later after init completes)
     g_config.boot_count++;
     printf("Config: Boot count = %lu (watchdog resets = %lu)\n",
            (unsigned long)g_config.boot_count,

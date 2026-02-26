@@ -3,7 +3,7 @@
 #include "pico/stdlib.h"
 #include <stdio.h>
 
-// Helper to safely delay - use busy_wait to avoid FreeRTOS conflicts
+// Helper to safely delay - use busy_wait to avoid timing issues
 static inline void lcd_delay_ms(uint32_t ms) { busy_wait_us_32(ms * 1000); }
 
 // PCF8574 Pin Mapping - Standard config

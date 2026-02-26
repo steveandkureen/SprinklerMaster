@@ -16,7 +16,7 @@
                 <h1 class="text-5xl font-bold text-white mb-2">
                     Raspberry Pi Pico 2W
                 </h1>
-                <p class="text-emerald-200 text-lg">FreeRTOS Web Server</p>
+                <p class="text-emerald-200 text-lg">Pico 2W Web Server</p>
             </div>
 
             <!-- Status Indicator -->
@@ -47,7 +47,7 @@
                 <h2 class="text-xl font-semibold text-white mb-3">Welcome</h2>
                 <p class="text-emerald-100 leading-relaxed">
                     This lightweight web interface is served directly from a Raspberry Pi Pico 2W
-                    microcontroller running FreeRTOS. The entire web server operates on dual-core
+                    microcontroller running bare-metal firmware. The entire web server operates on dual-core
                     ARM Cortex-M33 processors with just 520KB of RAM.
                 </p>
             </div>
@@ -71,7 +71,7 @@
             <!-- Footer -->
             <div class="text-center mt-8 pt-6 border-t border-white/10">
                 <p class="text-emerald-300 text-sm">
-                    Powered by FreeRTOS &middot; lwIP &middot; Pico SDK 2.2.0
+                    Powered by lwIP &bull; Pico SDK 2.2.0 &bull; Raspberry Pi Pico 2W
                 </p>
             </div>
         </div>
