@@ -29,9 +29,7 @@ set(PICO_PLATFORM rp2350-arm-s)
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
-# FreeRTOS removed - using bare-metal super loop architecture
-
-project(BasicRTOS C CXX ASM)
+project(SprinklerMaster C CXX ASM)
 
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
@@ -64,8 +62,8 @@ pico_set_lwip_httpd_content(pico_httpd_content INTERFACE
 # DHCP server for AP mode (from btstack 3rd-party)
 set(DHCP_SERVER_DIR ${USERHOME}/.pico-sdk/sdk/${sdkVersion}/lib/btstack/3rd-party/lwip/dhcp-server)
 
-add_executable(BasicRTOS
-      BasicRTOS.c
+add_executable(SprinklerMaster
+      main.c
       src/network.c
       src/dht22.c
       src/config_flash.c
@@ -79,15 +77,15 @@ add_executable(BasicRTOS
       ${DHCP_SERVER_DIR}/dhserver.c)
 
 
-pico_set_program_name(BasicRTOS "BasicRTOS")
-pico_set_program_version(BasicRTOS "0.1")
+pico_set_program_name(SprinklerMaster "SprinklerMaster")
+pico_set_program_version(SprinklerMaster "0.1")
 
 # Modify the below lines to enable/disable output over UART/USB
-pico_enable_stdio_uart(BasicRTOS 0)
-pico_enable_stdio_usb(BasicRTOS 1)
+pico_enable_stdio_uart(SprinklerMaster 0)
+pico_enable_stdio_usb(SprinklerMaster 1)
 
 # Add the standard library to the build
-target_link_libraries(BasicRTOS PRIVATE
+target_link_libraries(SprinklerMaster PRIVATE
         pico_multicore
         pico_stdlib
         hardware_i2c
@@ -100,7 +98,7 @@ target_link_libraries(BasicRTOS PRIVATE
         pico_httpd_content)
 
 # Add the standard include files to the build
-target_include_directories(BasicRTOS PRIVATE
+target_include_directories(SprinklerMaster PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
         include/
         ${DHCP_SERVER_DIR}
@@ -108,5 +106,5 @@ target_include_directories(BasicRTOS PRIVATE
 
 # Add any user requested libraries
 
-pico_add_extra_outputs(BasicRTOS)
+pico_add_extra_outputs(SprinklerMaster)
 

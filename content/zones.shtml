@@ -47,7 +47,7 @@
         <!-- Footer -->
         <div class="text-center mt-8 pb-8">
             <p class="text-emerald-300 text-sm">
-                Powered by FreeRTOS - lwIP - Pico SDK 2.2.0
+                Powered by lwIP &bull; Pico SDK 2.2.0 &bull; Raspberry Pi Pico 2W
             </p>
         </div>
     </div>

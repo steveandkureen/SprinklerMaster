@@ -87,6 +87,6 @@ void fault_tolerance_enable_watchdog(void) {
 
 void fault_tolerance_log_memory_stats(void) {
     // In bare-metal mode, we can use mallinfo if available
-    // For now, just note that FreeRTOS heap functions are not available
+    // For now, just note that dynamic heap functions are not available
     printf("Memory stats: (bare-metal mode - use mallinfo if needed)\n");
 }

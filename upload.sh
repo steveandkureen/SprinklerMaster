@@ -1,2 +1,2 @@
-picotool load ./build/BasicRTOS.uf2 -f
+picotool load ./build/SprinklerMaster.uf2 -f
 
