@@ -49,6 +49,7 @@
 #define LWIP_CHKSUM_ALGORITHM 3
 #define DHCP_DOES_ARP_CHECK 0
 #define LWIP_DHCP_DOES_ACD_CHECK 0
+#define LWIP_IP_FORWARD 0
 
 // NO_SYS mode does not require thread settings
 #define LWIP_TIMEVAL_PRIVATE 0
@@ -99,7 +100,7 @@
 #define LWIP_HTTPD_SSI 1
 #define LWIP_HTTPD_SSI_INCLUDE_TAG 0
 #define LWIP_HTTPD_SSI_EXTENSIONS ".shtml", ".shtm", ".ssi", ".xml", ".json", ".html"
-#define LWIP_HTTPD_MAX_TAG_INSERT_LEN 3072  // Increased for schedule + program JSON output
+#define LWIP_HTTPD_MAX_TAG_INSERT_LEN 4096  // Increased for schedule + program + history JSON output
 #define HTTPD_FSDATA_FILE "pico_fsdata.inc"
 
 // SNTP (NTP time sync) settings

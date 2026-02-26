@@ -1,6 +1,7 @@
 #include "lcd_display.h"
 #include "config_flash.h"
 #include "lcd.h"
+#include "network.h"
 #include "scheduler.h"
 #include "pico/time.h"
 #include <stdio.h>
@@ -252,6 +253,15 @@ void lcd_display_poll(void) {
     char line0[LCD_WIDTH + 1];
     char line1[LCD_WIDTH + 1];
     uint32_t now_ms = to_ms_since_boot(get_absolute_time());
+
+    // AP setup mode: fixed display
+    if (network_is_ap_mode()) {
+        format_line(line0, "Setup Mode");
+        format_line(line1, "192.168.4.1");
+        lcd_set_text(0, 0, line0);
+        lcd_set_text(1, 0, line1);
+        return;
+    }
 
     // Line 0: "Starting up...." during startup, then zone status or "Idle"
     if (!startup_complete) {

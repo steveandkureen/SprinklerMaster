@@ -34,4 +34,7 @@ void scheduler_run_program(uint8_t program_id);
 // Get current scheduler status
 scheduler_status_t scheduler_get_status(void);
 
+// Returns true if freeze protection is active (temp <= 35F)
+bool scheduler_is_freeze_active(void);
+
 #endif // SCHEDULER_H

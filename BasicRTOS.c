@@ -92,10 +92,17 @@ static void core1_entry(void) {
             cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_state);
         }
 
-        // WiFi connection check (30 seconds)
-        if ((now_ms - last_wifi_ms) >= WIFI_CHECK_INTERVAL_MS) {
+        // WiFi connection check (30 seconds) — skip in AP mode
+        if (!network_is_ap_mode() && (now_ms - last_wifi_ms) >= WIFI_CHECK_INTERVAL_MS) {
             last_wifi_ms = now_ms;
             network_check_wifi();
+        }
+
+        // Check for pending reboot request from web UI
+        if (network_reboot_pending()) {
+            printf("Core 1: Reboot requested, triggering watchdog reset\n");
+            watchdog_enable(100, 1);
+            while (1) tight_loop_contents();
         }
 
         // Feed watchdog from Core 1 as well
@@ -193,8 +200,8 @@ int main() {
             sensor_poll();
         }
 
-        // Scheduler check (5 seconds)
-        if ((now_ms - last_scheduler_ms) >= SCHEDULER_POLL_INTERVAL_MS) {
+        // Scheduler check (5 seconds) — skip in AP mode (no WiFi for NTP)
+        if (!network_is_ap_mode() && (now_ms - last_scheduler_ms) >= SCHEDULER_POLL_INTERVAL_MS) {
             last_scheduler_ms = now_ms;
             scheduler_poll();
         }

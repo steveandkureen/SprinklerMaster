@@ -15,6 +15,7 @@
 bool ds3231_init(void);
 void ds3231_sync_from_ntp(uint32_t ntp_seconds);
 bool ds3231_is_available(void);
+bool ds3231_battery_ok(void);
 int ds3231_get_time_str(char *buf, size_t buflen);
 
 #endif

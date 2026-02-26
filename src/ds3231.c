@@ -16,6 +16,8 @@
 // 0x06: Year    (BCD, 0-99)
 
 #define DS3231_REG_SECONDS 0x00
+#define DS3231_REG_STATUS  0x0F
+#define DS3231_STATUS_OSF  0x80  // Oscillator Stop Flag (bit 7)
 #define DS3231_NUM_TIME_REGS 7
 
 // BCD conversion helpers
@@ -116,6 +118,17 @@ bool ds3231_is_available(void) {
     return g_ds3231_available;
 }
 
+bool ds3231_battery_ok(void) {
+    if (!g_ds3231_available) return false;
+
+    uint8_t status;
+    if (!ds3231_read_registers(DS3231_REG_STATUS, &status, 1))
+        return false;
+
+    // OSF bit 7 = 1 means oscillator stopped (battery dead or removed)
+    return (status & DS3231_STATUS_OSF) == 0;
+}
+
 int ds3231_get_time_str(char *buf, size_t buflen) {
     if (!g_ds3231_available)
         return snprintf(buf, buflen, "Not connected");
@@ -124,9 +137,14 @@ int ds3231_get_time_str(char *buf, size_t buflen) {
     if (!ds3231_read_time(&t))
         return snprintf(buf, buflen, "Read error");
 
-    return snprintf(buf, buflen, "%04d-%02d-%02d %02d:%02d:%02d UTC",
-                    t.tm_year + 1900, t.tm_mon + 1, t.tm_mday,
-                    t.tm_hour, t.tm_min, t.tm_sec);
+    // Convert UTC from DS3231 to local time using the TZ env var
+    time_t epoch = tm_to_epoch_utc(&t);
+    struct tm local;
+    localtime_r(&epoch, &local);
+
+    return snprintf(buf, buflen, "%04d-%02d-%02d %02d:%02d:%02d",
+                    local.tm_year + 1900, local.tm_mon + 1, local.tm_mday,
+                    local.tm_hour, local.tm_min, local.tm_sec);
 }
 
 bool ds3231_init(void) {
@@ -159,6 +177,12 @@ bool ds3231_init(void) {
     printf("RTC: DS3231 time set to %04d-%02d-%02d %02d:%02d:%02d UTC (epoch=%ld)\n",
            rtc_time.tm_year + 1900, rtc_time.tm_mon + 1, rtc_time.tm_mday,
            rtc_time.tm_hour, rtc_time.tm_min, rtc_time.tm_sec, (long)epoch);
+
+    // Log OSF status
+    uint8_t status;
+    if (ds3231_read_registers(DS3231_REG_STATUS, &status, 1)) {
+        printf("RTC: Status register = 0x%02X (OSF=%d)\n", status, (status & DS3231_STATUS_OSF) ? 1 : 0);
+    }
 
     g_ds3231_available = true;
     return true;
@@ -195,5 +219,15 @@ void ds3231_sync_from_ntp(uint32_t ntp_seconds) {
         }
     } else {
         printf("NTP: RTC in sync (delta=%lds)\n", (long)delta);
+    }
+
+    // Clear OSF flag on every successful NTP sync — the oscillator is clearly
+    // running if we got here, and OSF is sticky from any past power loss
+    uint8_t status;
+    if (ds3231_read_registers(DS3231_REG_STATUS, &status, 1) &&
+        (status & DS3231_STATUS_OSF)) {
+        printf("NTP: Clearing OSF flag (was set from previous power loss)\n");
+        status &= ~DS3231_STATUS_OSF;
+        ds3231_write_registers(DS3231_REG_STATUS, &status, 1);
     }
 }

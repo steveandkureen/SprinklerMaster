@@ -1,7 +1,7 @@
 #include "network.h"
-#include "config.h"
 #include "config_flash.h"
 #include "dht22.h"
+#include "history.h"
 #include "lcd.h"
 #include "lcd_display.h"
 #include "zones.h"
@@ -15,7 +15,8 @@
 #include "pico/flash.h"
 #include "pico/time.h"
 #include "pico/types.h"
-#include "wifi_credentials.h"
+#include "hardware/watchdog.h"
+#include "dhserver.h"
 #include <lwip/def.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -24,6 +25,8 @@
 #include <time.h>
 
 char *ip4_addr = NULL;
+static bool g_ap_mode = false;
+static volatile bool g_reboot_pending = false;
 
 // Helper: URL decode a string in place
 static void url_decode(char *str) {
@@ -65,9 +68,11 @@ static bool wifi_reconnect(void) {
     printf("Network: Attempting WiFi reconnection...\n");
     lcd_display_set_status("WiFi Reconnect");
 
-    // Try to reconnect with same credentials
+    const char *ssid = config_get_ssid();
+    const char *password = config_get_password();
+
     int result = cyw43_arch_wifi_connect_timeout_ms(
-        WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK, 30000);
+        ssid, password, CYW43_AUTH_WPA2_AES_PSK, 30000);
 
     if (result == 0) {
         printf("Network: WiFi reconnected!\n");
@@ -86,6 +91,9 @@ static const char *cgi_handler_default(int index, int numParams, char *params[],
                                        char *value[]) {
 
     printf("cgi called\n");
+    if (g_ap_mode) {
+        return "/setup.html";
+    }
     return "/dashboard.html";
 }
 
@@ -397,6 +405,89 @@ static const char *cgi_handler_programs_run(int index, int numParams, char *para
     return "/api/success.json";
 }
 
+static const char *cgi_handler_wifi_save(int index, int numParams, char *params[],
+                                         char *value[]) {
+    printf("wifi save API called\n");
+
+    const char *ssid_val = find_param(numParams, params, value, "ssid");
+    const char *pass_val = find_param(numParams, params, value, "pass");
+
+    if (!ssid_val || ssid_val[0] == '\0') {
+        printf("WiFi save: missing SSID\n");
+        return "/api/error.json";
+    }
+
+    // URL decode the values
+    char decoded_ssid[MAX_SSID_LEN + 1];
+    strncpy(decoded_ssid, ssid_val, MAX_SSID_LEN);
+    decoded_ssid[MAX_SSID_LEN] = '\0';
+    url_decode(decoded_ssid);
+
+    char decoded_pass[MAX_PASSWORD_LEN + 1];
+    if (pass_val) {
+        strncpy(decoded_pass, pass_val, MAX_PASSWORD_LEN);
+        decoded_pass[MAX_PASSWORD_LEN] = '\0';
+        url_decode(decoded_pass);
+    } else {
+        decoded_pass[0] = '\0';
+    }
+
+    printf("WiFi save: SSID='%s'\n", decoded_ssid);
+    config_set_wifi(decoded_ssid, decoded_pass);
+
+    if (config_save()) {
+        printf("WiFi credentials saved to flash\n");
+        return "/api/success.json";
+    }
+    printf("Failed to save WiFi credentials\n");
+    return "/api/error.json";
+}
+
+static const char *cgi_handler_wifi_clear(int index, int numParams, char *params[],
+                                           char *value[]) {
+    printf("wifi clear API called\n");
+    config_set_wifi("", "");
+    if (config_save()) {
+        printf("WiFi credentials cleared\n");
+        return "/api/success.json";
+    }
+    return "/api/error.json";
+}
+
+static const char *cgi_handler_timezone_save(int index, int numParams, char *params[],
+                                              char *value[]) {
+    printf("timezone save API called\n");
+
+    const char *tz_val = find_param(numParams, params, value, "tz");
+    if (!tz_val || tz_val[0] == '\0') {
+        return "/api/error.json";
+    }
+
+    char decoded_tz[MAX_TIMEZONE_LEN + 1];
+    strncpy(decoded_tz, tz_val, MAX_TIMEZONE_LEN);
+    decoded_tz[MAX_TIMEZONE_LEN] = '\0';
+    url_decode(decoded_tz);
+
+    printf("Timezone: '%s'\n", decoded_tz);
+    config_set_timezone(decoded_tz);
+
+    if (config_save()) {
+        // Apply immediately
+        setenv("TZ", decoded_tz, 1);
+        tzset();
+        printf("Timezone saved and applied\n");
+        return "/api/success.json";
+    }
+    return "/api/error.json";
+}
+
+static const char *cgi_handler_wifi_reboot(int index, int numParams, char *params[],
+                                            char *value[]) {
+    printf("wifi reboot API called — rebooting soon\n");
+    g_reboot_pending = true;
+    return "/api/success.json";
+}
+
 static tCGI cgi_handlers[] = {{"/", cgi_handler_default},
                               {"/index.html", cgi_handler_default},
                               {"/api/sensors", cgi_handler_sensors},
@@ -412,7 +503,11 @@ static tCGI cgi_handlers[] = {{"/", cgi_handler_default},
                               {"/api/programs", cgi_handler_programs},
                               {"/api/programs/save", cgi_handler_programs_save},
                               {"/api/programs/delete", cgi_handler_programs_delete},
-                              {"/api/programs/run", cgi_handler_programs_run}};
+                              {"/api/programs/run", cgi_handler_programs_run},
+                              {"/api/wifi/save", cgi_handler_wifi_save},
+                              {"/api/wifi/clear", cgi_handler_wifi_clear},
+                              {"/api/wifi/reboot", cgi_handler_wifi_reboot},
+                              {"/api/timezone/save", cgi_handler_timezone_save}};
 
 // SSI tags - indices: 0=ip4_addr, 1=temp, 2=hum, 3=upd, 4-27=zone data, 28=scheds, 29=activez
 static const char *ssi_tags[] = {
@@ -443,7 +538,17 @@ static const char *ssi_tags[] = {
     // Current program step
     "prgstep",
     // Total program steps
-    "prgsteps"
+    "prgsteps",
+    // DS3231 battery status (true/false)
+    "battok",
+    // Current WiFi SSID from flash config
+    "wfssid",
+    // Current timezone (POSIX TZ string)
+    "tz",
+    // Watering history JSON array
+    "hist",
+    // Freeze protection active (true/false)
+    "freeze"
 };
 
 // SSI handler
@@ -578,6 +683,21 @@ static u16_t ssi_handler(int index, char *insert, int insertlen) {
         scheduler_status_t status = scheduler_get_status();
         printed = snprintf(insert, insertlen, "%d", status.program_total_steps);
     } break;
+    case 37: // battok - DS3231 battery status
+        printed = snprintf(insert, insertlen, "%s", ds3231_battery_ok() ? "true" : "false");
+        break;
+    case 38: // wfssid - current WiFi SSID
+        printed = snprintf(insert, insertlen, "%s", config_get_ssid());
+        break;
+    case 39: // tz - current timezone
+        printed = snprintf(insert, insertlen, "%s", config_get_timezone());
+        break;
+    case 40: // hist - watering history JSON array
+        printed = history_get_json(insert, insertlen);
+        break;
+    case 41: // freeze - freeze protection active
+        printed = snprintf(insert, insertlen, "%s", scheduler_is_freeze_active() ? "true" : "false");
+        break;
     default:
         // Zone data: indices 4-27 (8 zones * 3 fields each)
         if (index >= 4 && index < 28) {
@@ -604,11 +724,73 @@ static u16_t ssi_handler(int index, char *insert, int insertlen) {
     return (u16_t)printed;
 }
 
+// DHCP server entries for AP mode (pool of assignable IPs: 192.168.4.2 - 192.168.4.5)
+#define AP_ADDR_0 192
+#define AP_ADDR_1 168
+#define AP_ADDR_2 4
+#define AP_ADDR_3 1
+#define NUM_DHCP_ENTRIES 4
+
+static dhcp_entry_t dhcp_entries[NUM_DHCP_ENTRIES] = {
+    {{0}, {AP_ADDR_0, AP_ADDR_1, AP_ADDR_2, 2}, {255, 255, 255, 0}, 24 * 60 * 60},
+    {{0}, {AP_ADDR_0, AP_ADDR_1, AP_ADDR_2, 3}, {255, 255, 255, 0}, 24 * 60 * 60},
+    {{0}, {AP_ADDR_0, AP_ADDR_1, AP_ADDR_2, 4}, {255, 255, 255, 0}, 24 * 60 * 60},
+    {{0}, {AP_ADDR_0, AP_ADDR_1, AP_ADDR_2, 5}, {255, 255, 255, 0}, 24 * 60 * 60},
+};
+
+static dhcp_config_t dhcp_config = {
+    .addr = {AP_ADDR_0, AP_ADDR_1, AP_ADDR_2, AP_ADDR_3},
+    .port = 67,
+    .dns = {AP_ADDR_0, AP_ADDR_1, AP_ADDR_2, AP_ADDR_3},
+    .domain = "sprinkler",
+    .num_entry = NUM_DHCP_ENTRIES,
+    .entries = dhcp_entries,
+};
+
+// Initialize AP mode for WiFi setup
+static bool network_init_ap(void) {
+    printf("Network: No WiFi credentials — starting AP mode\n");
+    lcd_display_set_status("AP Setup Mode");
+    g_ap_mode = true;
+
+    // Start AP with open network
+    cyw43_arch_enable_ap_mode("SprinklerSetup", NULL, CYW43_AUTH_OPEN);
+    printf("Network: AP 'SprinklerSetup' started (open)\n");
+
+    // Set static IP on the AP interface
+    struct netif *n = &cyw43_state.netif[CYW43_ITF_AP];
+    ip4_addr_t ip, mask, gw;
+    IP4_ADDR(&ip,   AP_ADDR_0, AP_ADDR_1, AP_ADDR_2, AP_ADDR_3);
+    IP4_ADDR(&mask,  255, 255, 255, 0);
+    IP4_ADDR(&gw,   AP_ADDR_0, AP_ADDR_1, AP_ADDR_2, AP_ADDR_3);
+    netif_set_addr(n, &ip, &mask, &gw);
+    netif_set_up(n);
+    netif_set_default(n);
+
+    ip4_addr = "192.168.4.1";
+
+    // Start DHCP server
+    err_t err = dhserv_init(&dhcp_config);
+    if (err != ERR_OK) {
+        printf("Network: DHCP server failed to start (err %d)\n", err);
+    } else {
+        printf("Network: DHCP server started\n");
+    }
+
+    // Start HTTP server with CGI handlers
+    printf("Network: Starting HTTP server (AP mode)...\n");
+    httpd_init();
+    http_set_cgi_handlers(cgi_handlers, LWIP_ARRAYSIZE(cgi_handlers));
+    http_set_ssi_handler(ssi_handler, ssi_tags, LWIP_ARRAYSIZE(ssi_tags));
+    printf("Network: HTTP server running on 192.168.4.1:80\n");
+
+    lcd_display_set_ip("192.168.4.1");
+    lcd_display_startup_complete();
+    return true;
+}
+
 // Initialize all network services
 bool network_init(void) {
-    char ip_str[16];
-    wifi_config_t wifi_config;
-
     // Initialize the Wi-Fi chip
     printf("Network: Initializing WiFi chip...\n");
     lcd_display_set_status("Init WiFi chip");
@@ -618,24 +800,30 @@ bool network_init(void) {
         return false;
     }
 
-    // Load WiFi credentials
-    strncpy(wifi_config.ssid, WIFI_SSID, MAX_SSID_LENGTH);
-    wifi_config.ssid[MAX_SSID_LENGTH] = '\0';
-    strncpy(wifi_config.password, WIFI_PASSWORD, MAX_PASSWORD_LENGTH);
-    wifi_config.password[MAX_PASSWORD_LENGTH] = '\0';
+    // Check flash for WiFi credentials
+    const char *ssid = config_get_ssid();
+    if (ssid[0] == '\0') {
+        return network_init_ap();
+    }
 
-    printf("Network: Connecting to %s...\n", wifi_config.ssid);
+    const char *password = config_get_password();
+    printf("Network: Connecting to %s...\n", ssid);
     lcd_display_set_status("Connecting WiFi");
 
     // Enable wifi station mode
     cyw43_arch_enable_sta_mode();
 
-    // Connect to WiFi
-    if (cyw43_arch_wifi_connect_timeout_ms(wifi_config.ssid, wifi_config.password,
+    // Connect to WiFi — fall back to AP setup mode on failure
+    if (cyw43_arch_wifi_connect_timeout_ms(ssid, password,
                                            CYW43_AUTH_WPA2_AES_PSK, 30000)) {
-        printf("Network: Failed to connect to WiFi\n");
+        printf("Network: Failed to connect to WiFi, falling back to AP setup mode\n");
         lcd_display_set_status("WiFi Failed");
-        return false;
+        cyw43_arch_deinit();
+        if (cyw43_arch_init()) {
+            printf("Network: Wi-Fi chip re-init failed\n");
+            return false;
+        }
+        return network_init_ap();
     }
 
     printf("Network: Connected!\n");
@@ -644,7 +832,6 @@ bool network_init(void) {
     // Get IP address
     ip4_addr = ip4addr_ntoa(netif_default ? &netif_default->ip_addr : NULL);
     printf("Network: IP address %s\n", ip4_addr);
-    snprintf(ip_str, sizeof(ip_str), "%s", ip4_addr);
     lcd_display_set_ip(ip4_addr);
 
     // Initialize NTP
@@ -683,4 +870,14 @@ void network_check_wifi(void) {
         printf("Network: WiFi disconnected, attempting reconnection\n");
         wifi_reconnect();
     }
+}
+
+// Returns true if device is in AP setup mode
+bool network_is_ap_mode(void) {
+    return g_ap_mode;
+}
+
+// Returns true if a reboot has been requested (stops watchdog feeding)
+bool network_reboot_pending(void) {
+    return g_reboot_pending;
 }
