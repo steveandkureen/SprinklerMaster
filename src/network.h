@@ -20,10 +20,12 @@ void network_check_wifi(void);
 #define NET_CMD_CONFIG_RELOAD  0x01000000
 #define NET_CMD_ZONE_ON        0x02000000
 #define NET_CMD_ZONE_OFF       0x03000000
+#define NET_CMD_PROGRAM_RUN    0x04000000
 #define NET_CMD_MASK           0xFF000000
 #define NET_CMD_ZONE_ID(cmd)   (((cmd) >> 16) & 0xFF)
 #define NET_CMD_DURATION(cmd)  ((cmd) & 0xFFFF)
 #define NET_MAKE_ZONE_ON(id, dur) (NET_CMD_ZONE_ON | ((uint32_t)(id) << 16) | ((uint32_t)(dur) & 0xFFFF))
+#define NET_MAKE_PROGRAM_RUN(id) (NET_CMD_PROGRAM_RUN | ((uint32_t)(id) << 16))
 
 // Lock-free SPSC command queue (single producer Core 1, single consumer Core 0)
 #define NET_CMD_QUEUE_SIZE 8

@@ -76,7 +76,10 @@
                 <a href="/schedules.shtml" class="bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-100 px-6 py-3 rounded-lg font-semibold transition-all inline-block">
                     Schedule Manager
                 </a>
-                <a href="/zones.shtml" class="bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-100 px-6 py-3 rounded-lg font-semibold transition-all inline-block">
+                <a href="/programs.shtml" class="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/50 text-purple-100 px-6 py-3 rounded-lg font-semibold transition-all inline-block">
+                    Program Manager
+                </a>
+                <a href="/zones.shtml" class="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/50 text-purple-100 px-6 py-3 rounded-lg font-semibold transition-all inline-block">
                     Zone Settings
                 </a>
                 <button onclick="stopAllZones()" class="ml-auto bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-100 px-6 py-3 rounded-lg font-semibold transition-all">
@@ -87,11 +90,24 @@
 
         <!-- Manual Control Modal -->
         <div id="manual-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden items-center justify-center z-50">
-            <div class="bg-slate-800 rounded-2xl shadow-2xl p-6 m-4 max-w-lg w-full border border-white/20">
+            <div class="bg-slate-800 rounded-2xl shadow-2xl p-6 m-4 max-w-lg w-full border border-white/20 max-h-[90vh] overflow-y-auto">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-2xl font-semibold text-white">Manual Control</h2>
                     <button onclick="closeManualControl()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
                 </div>
+
+                <!-- Programs Section -->
+                <div id="manual-programs" class="mb-4">
+                    <h3 class="text-lg font-semibold text-purple-200 mb-2">Programs</h3>
+                    <div id="manual-programs-list" class="space-y-2">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <div class="border-t border-white/10 my-4"></div>
+
+                <!-- Individual Zones Section -->
+                <h3 class="text-lg font-semibold text-purple-200 mb-2">Individual Zones</h3>
                 <div class="mb-4">
                     <label class="text-emerald-200 text-sm">Run Duration</label>
                     <select id="manual-duration" class="w-full mt-1 bg-white/10 border border-white/20 text-white px-3 py-2 rounded-lg">
@@ -109,7 +125,7 @@
                 </div>
                 <div class="mt-4 pt-4 border-t border-white/10">
                     <button onclick="stopAllZones(); closeManualControl();" class="w-full bg-red-500/30 hover:bg-red-500/40 border border-red-500/50 text-red-100 px-4 py-2 rounded-lg font-semibold transition-all">
-                        Stop All Zones
+                        Stop All
                     </button>
                 </div>
             </div>
@@ -118,7 +134,7 @@
         <!-- Footer -->
         <div class="text-center mt-8 pb-8">
             <p class="text-emerald-300 text-sm">
-                Powered by FreeRTOS • lwIP • Pico SDK 2.2.0 • Raspberry Pi Pico 2W
+                Powered by lwIP • Pico SDK 2.2.0 • Raspberry Pi Pico 2W
             </p>
         </div>
 
@@ -168,11 +184,25 @@
             getServerTime: async () => {
                 const response = await fetch(`${API_BASE_URL}/time`);
                 return await response.json();
+            },
+
+            getPrograms: async () => {
+                const response = await fetch(`${API_BASE_URL}/programs`);
+                return await response.json();
+            },
+
+            runProgram: async (id) => {
+                const response = await fetch(`${API_BASE_URL}/programs/run?id=${id}`);
+                return await response.json();
             }
         };
 
         let activeZone = 0;
         let remainingMins = 0;
+        let activeProgram = 0;
+        let programStep = 0;
+        let programTotalSteps = 0;
+        let programsList = [];
 
         // Get day of year (1-366)
         function getDayOfYear(date) {
@@ -292,25 +322,58 @@
             }
         }
 
+        // Get next program-based runs for a zone
+        function getProgramNextRunsForZone(zoneId) {
+            const results = [];
+            for (const prog of programsList) {
+                if (!prog.enabled) continue;
+                const steps = prog.steps || [];
+                let offsetMinutes = 0;
+                for (const step of steps) {
+                    if (step.zone === zoneId) {
+                        const runTime = getNextRunTime(prog);
+                        if (runTime.date) {
+                            const adjustedDate = new Date(runTime.date.getTime() + offsetMinutes * 60000);
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            const adjDay = new Date(adjustedDate);
+                            adjDay.setHours(0, 0, 0, 0);
+                            const daysFromNow = Math.round((adjDay - today) / (1000 * 60 * 60 * 24));
+                            const adjustedText = formatNextRun(adjustedDate, daysFromNow < 0 ? 0 : daysFromNow);
+                            results.push({
+                                text: adjustedText,
+                                date: adjustedDate,
+                                duration: step.duration,
+                                programName: prog.name
+                            });
+                        }
+                        break;
+                    }
+                    offsetMinutes += step.duration;
+                }
+            }
+            return results;
+        }
+
         // Get next scheduled run for a zone
         function getZoneNextRun(zoneId) {
             const zoneSchedules = schedules
                 .filter(s => s.zone === zoneId && s.enabled)
-                .map(s => ({ schedule: s, ...getNextRunTime(s) }))
-                .filter(s => s.date !== null || s.schedule.type === SCHEDULE_TYPE_INTERVAL)
-                .sort((a, b) => {
-                    if (a.date && b.date) return a.date - b.date;
-                    if (a.date) return -1;
-                    if (b.date) return 1;
-                    return 0;
-                });
+                .map(s => ({ ...getNextRunTime(s), duration: s.duration }))
+                .filter(s => s.date !== null);
 
-            if (zoneSchedules.length === 0) {
+            const programRuns = getProgramNextRunsForZone(zoneId);
+
+            const allRuns = [...zoneSchedules, ...programRuns]
+                .filter(r => r.date !== null)
+                .sort((a, b) => a.date - b.date);
+
+            if (allRuns.length === 0) {
                 return { text: 'No schedule', duration: null };
             }
 
-            const next = zoneSchedules[0];
-            return { text: next.text, duration: next.schedule.duration };
+            const next = allRuns[0];
+            return { text: next.text, duration: next.duration, programName: next.programName || null };
         }
 
         // Update current time (browser time)
@@ -383,9 +446,16 @@
             let statusContent = '';
             if (isActive) {
                 const timeDisplay = remainingMins > 0 ? ` (${remainingMins} min left)` : '';
+                let progInfo = '';
+                if (activeProgram > 0) {
+                    const prog = programsList.find(p => p.id === activeProgram);
+                    const progName = prog ? prog.name : `Program ${activeProgram}`;
+                    progInfo = `<p class="text-xs text-center mt-1">${progName} - Step ${programStep}/${programTotalSteps}</p>`;
+                }
                 statusContent = `
                     <div class="${colors.badge} rounded-lg px-3 py-2">
                         <p class="font-semibold text-center">RUNNING${timeDisplay}</p>
+                        ${progInfo}
                     </div>
                 `;
             } else {
@@ -397,11 +467,17 @@
             }
 
             // Next run info
+            let nextRunDetail = nextRun.text;
+            if (nextRun.duration) {
+                nextRunDetail += nextRun.programName
+                    ? ` (${nextRun.duration} min, ${nextRun.programName})`
+                    : ` (${nextRun.duration} min)`;
+            }
             const nextRunContent = nextRun.text === 'No schedule'
                 ? `<p class="text-emerald-400 text-xs">No schedule</p>`
                 : `<div class="text-xs ${colors.text}">
                        <p class="font-semibold">Next Run:</p>
-                       <p>${nextRun.text}${nextRun.duration ? ` (${nextRun.duration} min)` : ''}</p>
+                       <p>${nextRunDetail}</p>
                    </div>`;
 
             return `
@@ -438,7 +514,7 @@
             const modal = document.getElementById('manual-modal');
             modal.classList.remove('hidden');
             modal.classList.add('flex');
-            populateManualZones();
+            populateManualControl();
         }
 
         function closeManualControl() {
@@ -447,7 +523,40 @@
             modal.classList.remove('flex');
         }
 
-        function populateManualZones() {
+        function populateManualControl() {
+            // Populate programs section
+            const progsContainer = document.getElementById('manual-programs-list');
+            if (programsList.length === 0) {
+                progsContainer.innerHTML = '<p class="text-purple-400 text-sm">No programs defined. <a href="/programs.shtml" class="underline">Create one</a></p>';
+            } else {
+                progsContainer.innerHTML = programsList.map(prog => {
+                    const isRunning = activeProgram === prog.id;
+                    const stepsText = (prog.steps || []).map(s => {
+                        const zn = allZones.find(z => z.id === s.zone);
+                        return `${zn ? zn.name : 'Z' + s.zone} ${s.duration}m`;
+                    }).join(' \u2192 ');
+                    const totalDur = (prog.steps || []).reduce((sum, s) => sum + s.duration, 0);
+
+                    return `
+                        <div class="bg-white/5 rounded-lg p-3 border border-white/10">
+                            <div class="flex items-center justify-between">
+                                <div class="flex-1 min-w-0">
+                                    <span class="text-white font-semibold">${prog.name}</span>
+                                    <span class="text-purple-400 text-sm ml-2">(${totalDur} min)</span>
+                                    ${isRunning ? `<span class="text-green-400 text-sm ml-2">Step ${programStep}/${programTotalSteps}</span>` : ''}
+                                    <p class="text-purple-300 text-xs truncate">${stepsText}</p>
+                                </div>
+                                ${isRunning
+                                    ? `<button onclick="stopAllZones(); populateManualControl();" class="ml-2 bg-red-500/30 hover:bg-red-500/40 border border-red-500/50 text-red-100 px-4 py-1 rounded-lg text-sm font-semibold whitespace-nowrap">Stop</button>`
+                                    : `<button onclick="manualRunProgram(${prog.id})" class="ml-2 bg-green-500/30 hover:bg-green-500/40 border border-green-500/50 text-green-100 px-4 py-1 rounded-lg text-sm font-semibold whitespace-nowrap">Run</button>`
+                                }
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Populate zones section
             const container = document.getElementById('manual-zones');
             const enabledZones = allZones.filter(z => z.enabled);
 
@@ -481,7 +590,7 @@
             try {
                 await API.zoneOn(zoneId, duration);
                 await loadZones();
-                populateManualZones();
+                populateManualControl();
             } catch (error) {
                 console.error('Error starting zone:', error);
             }
@@ -491,9 +600,19 @@
             try {
                 await API.zoneOff(zoneId);
                 await loadZones();
-                populateManualZones();
+                populateManualControl();
             } catch (error) {
                 console.error('Error stopping zone:', error);
+            }
+        }
+
+        async function manualRunProgram(id) {
+            try {
+                await API.runProgram(id);
+                await loadZones();
+                populateManualControl();
+            } catch (error) {
+                console.error('Error running program:', error);
             }
         }
 
@@ -511,17 +630,27 @@
         // Load and display zones
         async function loadZones() {
             try {
-                // Load schedules and zone status
+                // Load schedules, programs, and zone status
                 await loadSchedules();
+                try {
+                    const progData = await API.getPrograms();
+                    programsList = progData.programs || [];
+                } catch (e) { programsList = []; }
 
                 // Get active zone status
                 try {
                     const status = await API.getZoneStatus();
                     activeZone = status.activeZone || 0;
                     remainingMins = status.remainingMins || 0;
+                    activeProgram = status.activeProgram || 0;
+                    programStep = status.programStep || 0;
+                    programTotalSteps = status.programTotalSteps || 0;
                 } catch (e) {
                     activeZone = 0;
                     remainingMins = 0;
+                    activeProgram = 0;
+                    programStep = 0;
+                    programTotalSteps = 0;
                 }
 
                 const data = await API.getZones();

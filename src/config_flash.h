@@ -6,13 +6,16 @@
 
 // Configuration constants
 #define CONFIG_MAGIC 0xCAFE
-#define CONFIG_VERSION 4  // v4: Added boot counters
+#define CONFIG_VERSION 5  // v5: Added programs
 #define MAX_ZONES 8
 #define MAX_SCHEDULES 20
 #define MAX_SSID_LEN 32
 #define MAX_PASSWORD_LEN 64
 #define MAX_ZONE_NAME_LEN 31
 #define MAX_TIMEZONE_LEN 63
+#define MAX_PROGRAMS 4
+#define MAX_PROGRAM_STEPS 8
+#define MAX_PROGRAM_NAME_LEN 15
 
 // Zone GPIO pin mapping (from Plan.md)
 #define ZONE_1_PIN 10
@@ -52,7 +55,28 @@ typedef struct {
     uint16_t last_run_year; // Year of last run (e.g., 2024), 0 = never
 } schedule_config_t;
 
-// Main configuration structure (~900 bytes)
+// Program step (4 bytes)
+typedef struct {
+    uint8_t  zone_id;        // 1-8, 0 = unused/end
+    uint8_t  reserved;
+    uint16_t duration_mins;  // 0-240
+} program_step_t;
+
+// Program configuration (~60 bytes)
+typedef struct {
+    char     name[MAX_PROGRAM_NAME_LEN + 1]; // 16 bytes
+    uint8_t  enabled;
+    uint8_t  type;            // 0=weekly, 1=interval (reuses schedule_type_t)
+    uint8_t  day_mask;        // day-of-week bits or interval days
+    uint8_t  hour;
+    uint8_t  minute;
+    uint8_t  step_count;      // 0-8
+    uint16_t last_run_day;
+    uint16_t last_run_year;
+    program_step_t steps[MAX_PROGRAM_STEPS]; // 32 bytes
+} program_config_t;
+
+// Main configuration structure
 typedef struct {
     uint16_t magic;                         // CONFIG_MAGIC for validity
     uint16_t version;                       // Config format version
@@ -73,6 +97,9 @@ typedef struct {
     // Boot statistics (8 bytes)
     uint32_t boot_count;                    // Total number of boots
     uint32_t watchdog_reset_count;          // Number of watchdog-triggered resets
+
+    // Program configurations (4 * ~60 = ~240 bytes)
+    program_config_t programs[MAX_PROGRAMS];
 
     uint32_t crc32;                         // Data integrity check
 } sprinkler_config_t;
@@ -106,6 +133,12 @@ void config_set_schedule(uint8_t schedule_id, const schedule_config_t* schedule)
 const schedule_config_t* config_get_schedule(uint8_t schedule_id);
 void config_clear_schedule(uint8_t schedule_id);
 void config_set_schedule_last_run(uint8_t schedule_id, uint16_t day_of_year, uint16_t year);
+
+// Program configuration
+void config_set_program(uint8_t program_id, const program_config_t* program);
+const program_config_t* config_get_program(uint8_t program_id);
+void config_clear_program(uint8_t program_id);
+void config_set_program_last_run(uint8_t program_id, uint16_t day_of_year, uint16_t year);
 
 // Boot statistics
 uint32_t config_get_boot_count(void);

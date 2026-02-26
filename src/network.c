@@ -8,6 +8,7 @@
 #include "scheduler.h"
 #include "ds3231.h"
 #include "lwip/apps/httpd.h"
+#include "lwip/apps/mdns.h"
 #include "lwip/apps/sntp.h"
 #include "lwip/ip4_addr.h"
 #include "pico/cyw43_arch.h"
@@ -85,7 +86,7 @@ static const char *cgi_handler_default(int index, int numParams, char *params[],
                                        char *value[]) {
 
     printf("cgi called\n");
-    return "/welcome.shtml";
+    return "/dashboard.html";
 }
 
 static const char *cgi_handler_sensors(int index, int numParams, char *params[],
@@ -265,6 +266,137 @@ static const char *cgi_handler_time(int index, int numParams, char *params[],
     return "/api/time.json";
 }
 
+static const char *cgi_handler_programs(int index, int numParams, char *params[],
+                                        char *value[]) {
+    printf("programs API called\n");
+    return "/api/programs.json";
+}
+
+static const char *cgi_handler_programs_save(int index, int numParams, char *params[],
+                                             char *value[]) {
+    printf("programs save API called with %d params\n", numParams);
+
+    const char *id_val = find_param(numParams, params, value, "id");
+    const char *name_val = find_param(numParams, params, value, "name");
+    const char *en_val = find_param(numParams, params, value, "en");
+    const char *type_val = find_param(numParams, params, value, "type");
+    const char *days_val = find_param(numParams, params, value, "days");
+    const char *hour_val = find_param(numParams, params, value, "hour");
+    const char *min_val = find_param(numParams, params, value, "min");
+
+    if (!id_val) {
+        printf("Missing program id\n");
+        return "/api/error.json";
+    }
+
+    int program_id = atoi(id_val);
+    if (program_id < 1 || program_id > MAX_PROGRAMS) {
+        printf("Invalid program id: %d\n", program_id);
+        return "/api/error.json";
+    }
+
+    program_config_t prog = {0};
+
+    if (name_val) {
+        char decoded_name[MAX_PROGRAM_NAME_LEN + 1];
+        strncpy(decoded_name, name_val, MAX_PROGRAM_NAME_LEN);
+        decoded_name[MAX_PROGRAM_NAME_LEN] = '\0';
+        url_decode(decoded_name);
+        strncpy(prog.name, decoded_name, MAX_PROGRAM_NAME_LEN);
+        prog.name[MAX_PROGRAM_NAME_LEN] = '\0';
+    }
+
+    prog.enabled = en_val ? (en_val[0] == '1' || en_val[0] == 't') : 1;
+    prog.type = type_val ? (uint8_t)atoi(type_val) : 0;
+    prog.day_mask = days_val ? (uint8_t)atoi(days_val) : 0;
+    prog.hour = hour_val ? (uint8_t)atoi(hour_val) : 0;
+    prog.minute = min_val ? (uint8_t)atoi(min_val) : 0;
+
+    // Parse steps: s1z/s1d through s8z/s8d
+    prog.step_count = 0;
+    for (int s = 1; s <= MAX_PROGRAM_STEPS; s++) {
+        char zone_param[8], dur_param[8];
+        snprintf(zone_param, sizeof(zone_param), "s%dz", s);
+        snprintf(dur_param, sizeof(dur_param), "s%dd", s);
+
+        const char *sz = find_param(numParams, params, value, zone_param);
+        const char *sd = find_param(numParams, params, value, dur_param);
+
+        if (sz && sd) {
+            uint8_t zone_id = (uint8_t)atoi(sz);
+            uint16_t dur = (uint16_t)atoi(sd);
+            if (zone_id > 0 && zone_id <= MAX_ZONES && dur > 0) {
+                prog.steps[prog.step_count].zone_id = zone_id;
+                prog.steps[prog.step_count].duration_mins = dur;
+                prog.step_count++;
+            }
+        }
+    }
+
+    // Preserve last_run from existing config
+    const program_config_t *existing = config_get_program(program_id);
+    if (existing) {
+        prog.last_run_day = existing->last_run_day;
+        prog.last_run_year = existing->last_run_year;
+    }
+
+    printf("Program %d: name='%s', type=%d, days=%d, time=%02d:%02d, steps=%d, en=%d\n",
+           program_id, prog.name, prog.type, prog.day_mask,
+           prog.hour, prog.minute, prog.step_count, prog.enabled);
+
+    config_set_program(program_id, &prog);
+
+    if (config_save()) {
+        printf("Program saved to flash\n");
+        net_cmd_push(NET_CMD_CONFIG_RELOAD);
+        return "/api/success.json";
+    }
+    return "/api/error.json";
+}
+
+static const char *cgi_handler_programs_delete(int index, int numParams, char *params[],
+                                               char *value[]) {
+    printf("program delete API called\n");
+
+    const char *id_val = find_param(numParams, params, value, "id");
+    if (!id_val) {
+        return "/api/error.json";
+    }
+
+    int program_id = atoi(id_val);
+    if (program_id < 1 || program_id > MAX_PROGRAMS) {
+        return "/api/error.json";
+    }
+
+    config_clear_program(program_id);
+
+    if (config_save()) {
+        printf("Program %d deleted\n", program_id);
+        net_cmd_push(NET_CMD_CONFIG_RELOAD);
+        return "/api/success.json";
+    }
+    return "/api/error.json";
+}
+
+static const char *cgi_handler_programs_run(int index, int numParams, char *params[],
+                                            char *value[]) {
+    printf("program run API called\n");
+
+    const char *id_val = find_param(numParams, params, value, "id");
+    if (!id_val) {
+        return "/api/error.json";
+    }
+
+    int program_id = atoi(id_val);
+    if (program_id < 1 || program_id > MAX_PROGRAMS) {
+        return "/api/error.json";
+    }
+
+    net_cmd_push(NET_MAKE_PROGRAM_RUN(program_id));
+    printf("Program %d run command sent\n", program_id);
+    return "/api/success.json";
+}
+
 static tCGI cgi_handlers[] = {{"/", cgi_handler_default},
                               {"/index.html", cgi_handler_default},
                               {"/api/sensors", cgi_handler_sensors},
@@ -276,7 +408,11 @@ static tCGI cgi_handlers[] = {{"/", cgi_handler_default},
                               {"/api/schedules", cgi_handler_schedules},
                               {"/api/schedules/save", cgi_handler_schedules_save},
                               {"/api/schedules/delete", cgi_handler_schedule_delete},
-                              {"/api/time", cgi_handler_time}};
+                              {"/api/time", cgi_handler_time},
+                              {"/api/programs", cgi_handler_programs},
+                              {"/api/programs/save", cgi_handler_programs_save},
+                              {"/api/programs/delete", cgi_handler_programs_delete},
+                              {"/api/programs/run", cgi_handler_programs_run}};
 
 // SSI tags - indices: 0=ip4_addr, 1=temp, 2=hum, 3=upd, 4-27=zone data, 28=scheds, 29=activez
 static const char *ssi_tags[] = {
@@ -299,7 +435,15 @@ static const char *ssi_tags[] = {
     // Server time (from NTP)
     "stime",
     // DS3231 RTC time (UTC)
-    "rtctime"
+    "rtctime",
+    // Programs (full JSON array)
+    "progs",
+    // Active program ID
+    "prgact",
+    // Current program step
+    "prgstep",
+    // Total program steps
+    "prgsteps"
 };
 
 // SSI handler
@@ -382,6 +526,58 @@ static u16_t ssi_handler(int index, char *insert, int insertlen) {
     case 32: // rtctime - DS3231 RTC time (UTC)
         printed = ds3231_get_time_str(insert, insertlen);
         break;
+    case 33: // progs - output full programs JSON array
+    {
+        char *p = insert;
+        int remaining = insertlen;
+        int n;
+
+        n = snprintf(p, remaining, "[");
+        p += n; remaining -= n;
+
+        bool first_prog = true;
+        for (int i = 1; i <= MAX_PROGRAMS && remaining > 200; i++) {
+            const program_config_t *prog = config_get_program(i);
+            if (prog && prog->name[0] != '\0') {
+                n = snprintf(p, remaining, "%s{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"type\":%d,\"days\":%d,\"hour\":%d,\"minute\":%d,\"stepCount\":%d,\"lastDay\":%d,\"lastYear\":%d,\"steps\":[",
+                             first_prog ? "" : ",",
+                             i, prog->name, prog->enabled ? "true" : "false",
+                             prog->type, prog->day_mask, prog->hour, prog->minute,
+                             prog->step_count, prog->last_run_day, prog->last_run_year);
+                p += n; remaining -= n;
+
+                for (int s = 0; s < prog->step_count && remaining > 40; s++) {
+                    n = snprintf(p, remaining, "%s{\"zone\":%d,\"duration\":%d}",
+                                 s > 0 ? "," : "",
+                                 prog->steps[s].zone_id, prog->steps[s].duration_mins);
+                    p += n; remaining -= n;
+                }
+
+                n = snprintf(p, remaining, "]}");
+                p += n; remaining -= n;
+                first_prog = false;
+            }
+        }
+
+        n = snprintf(p, remaining, "]");
+        p += n;
+        printed = p - insert;
+    } break;
+    case 34: // prgact - active program ID
+    {
+        scheduler_status_t status = scheduler_get_status();
+        printed = snprintf(insert, insertlen, "%d", status.active_program_id);
+    } break;
+    case 35: // prgstep - current program step
+    {
+        scheduler_status_t status = scheduler_get_status();
+        printed = snprintf(insert, insertlen, "%d", status.program_step);
+    } break;
+    case 36: // prgsteps - total program steps
+    {
+        scheduler_status_t status = scheduler_get_status();
+        printed = snprintf(insert, insertlen, "%d", status.program_total_steps);
+    } break;
     default:
         // Zone data: indices 4-27 (8 zones * 3 fields each)
         if (index >= 4 && index < 28) {
@@ -469,6 +665,11 @@ bool network_init(void) {
     http_set_cgi_handlers(cgi_handlers, LWIP_ARRAYSIZE(cgi_handlers));
     http_set_ssi_handler(ssi_handler, ssi_tags, LWIP_ARRAYSIZE(ssi_tags));
     printf("Network: HTTP server running on port 80\n");
+
+    // Initialize mDNS responder (sprinkler.local)
+    mdns_resp_init();
+    mdns_resp_add_netif(netif_default, "sprinkler");
+    printf("Network: mDNS responder started (sprinkler.local)\n");
 
     printf("Network: Initialization complete\n");
     lcd_display_startup_complete();

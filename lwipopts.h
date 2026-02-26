@@ -12,7 +12,7 @@
 // Memory settings
 #define MEM_LIBC_MALLOC 0
 #define MEM_ALIGNMENT 4
-#define MEM_SIZE 4000
+#define MEM_SIZE 32768
 #define MEMP_NUM_TCP_SEG 32
 #define MEMP_NUM_ARP_QUEUE 10
 #define PBUF_POOL_SIZE 24
@@ -29,6 +29,9 @@
 #define LWIP_UDP 1
 #define LWIP_DNS 1
 #define LWIP_TCP_KEEPALIVE 1
+#define LWIP_IGMP 1
+#define LWIP_MDNS_RESPONDER 1
+#define LWIP_NUM_NETIF_CLIENT_DATA 1
 
 // TCP settings
 #define TCP_WND (8 * TCP_MSS)
@@ -96,7 +99,7 @@
 #define LWIP_HTTPD_SSI 1
 #define LWIP_HTTPD_SSI_INCLUDE_TAG 0
 #define LWIP_HTTPD_SSI_EXTENSIONS ".shtml", ".shtm", ".ssi", ".xml", ".json", ".html"
-#define LWIP_HTTPD_MAX_TAG_INSERT_LEN 2048  // Increased for schedule JSON output
+#define LWIP_HTTPD_MAX_TAG_INSERT_LEN 3072  // Increased for schedule + program JSON output
 #define HTTPD_FSDATA_FILE "pico_fsdata.inc"
 
 // SNTP (NTP time sync) settings

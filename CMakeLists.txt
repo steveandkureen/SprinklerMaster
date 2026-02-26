@@ -48,6 +48,8 @@ pico_set_lwip_httpd_content(pico_httpd_content INTERFACE
       ${CMAKE_CURRENT_LIST_DIR}/content/api/zones.json
       ${CMAKE_CURRENT_LIST_DIR}/content/api/schedules.json
       ${CMAKE_CURRENT_LIST_DIR}/content/api/zone_status.json
+      ${CMAKE_CURRENT_LIST_DIR}/content/api/programs.json
+      ${CMAKE_CURRENT_LIST_DIR}/content/programs.shtml
       ${CMAKE_CURRENT_LIST_DIR}/content/api/success.json
       ${CMAKE_CURRENT_LIST_DIR}/content/api/error.json
       ${CMAKE_CURRENT_LIST_DIR}/content/api/time.json

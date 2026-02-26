@@ -146,6 +146,92 @@ static bool get_next_schedule(uint8_t *next_zone, uint8_t *next_hour, uint8_t *n
         }
     }
 
+    // Also check programs
+    for (int p = 1; p <= MAX_PROGRAMS; p++) {
+        const program_config_t *prog = config_get_program(p);
+        if (!prog || !prog->enabled || prog->step_count == 0) {
+            continue;
+        }
+
+        int prog_sched_mins = prog->hour * 60 + prog->minute;
+        int prog_mins_away = -1;
+
+        if (prog->type == SCHEDULE_TYPE_PERMANENT) {
+            for (int d = 0; d < 7; d++) {
+                int check_day = (current_day + d) % 7;
+                if (prog->day_mask & (1 << check_day)) {
+                    if (d == 0) {
+                        if (prog_sched_mins > current_mins) {
+                            prog_mins_away = prog_sched_mins - current_mins;
+                        } else {
+                            continue;
+                        }
+                    } else {
+                        prog_mins_away = (d * 24 * 60) + prog_sched_mins - current_mins;
+                    }
+                    break;
+                }
+            }
+        } else if (prog->type == SCHEDULE_TYPE_INTERVAL) {
+            int interval_days = prog->day_mask;
+            if (interval_days < 1) interval_days = 1;
+
+            int days_until_run = 0;
+            if (prog->last_run_year == 0) {
+                if (prog_sched_mins > current_mins) {
+                    days_until_run = 0;
+                } else {
+                    days_until_run = interval_days;
+                }
+            } else {
+                int days_since_last;
+                if (current_year == prog->last_run_year) {
+                    days_since_last = current_day_of_year - prog->last_run_day;
+                } else {
+                    int days_in_last_year = (prog->last_run_year % 4 == 0) ? 366 : 365;
+                    days_since_last = (days_in_last_year - prog->last_run_day) + current_day_of_year;
+                }
+
+                if (days_since_last >= interval_days) {
+                    if (prog_sched_mins > current_mins) {
+                        days_until_run = 0;
+                    } else {
+                        days_until_run = interval_days;
+                    }
+                } else {
+                    days_until_run = interval_days - days_since_last;
+                }
+            }
+
+            if (days_until_run == 0) {
+                prog_mins_away = prog_sched_mins - current_mins;
+            } else {
+                prog_mins_away = (days_until_run * 24 * 60) + prog_sched_mins - current_mins;
+            }
+        }
+
+        if (prog_mins_away <= 0) continue;
+
+        // Check each step — the first step's zone starts at program time,
+        // subsequent steps are offset by preceding durations
+        int step_offset = 0;
+        for (int s = 0; s < prog->step_count && s < MAX_PROGRAM_STEPS; s++) {
+            const program_step_t *step = &prog->steps[s];
+            if (step->zone_id == 0) break;
+
+            int total_mins_away = prog_mins_away + step_offset;
+            if (total_mins_away > 0 && total_mins_away < best_mins_away) {
+                best_mins_away = total_mins_away;
+                best_zone = step->zone_id;
+                int effective_mins = prog_sched_mins + step_offset;
+                best_hour = (effective_mins / 60) % 24;
+                best_minute = effective_mins % 60;
+            }
+
+            step_offset += step->duration_mins;
+        }
+    }
+
     if (best_zone > 0) {
         *next_zone = best_zone;
         *next_hour = best_hour;
